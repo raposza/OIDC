@@ -6,7 +6,7 @@ Version numbers here are this repository's own. `0.3.0` is the first release;
 `0.1` and `0.2` were the two internal copies this replaces and were never
 published under these coordinates.
 
-## 0.3.0 - unreleased
+## 0.3.0 - 2026-09-19
 
 The first release. Everything below describes what exists at 0.3.0 rather than
 what changed, since there is no published predecessor.
