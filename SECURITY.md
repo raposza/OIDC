@@ -1,0 +1,75 @@
+<!-- Copyright (c) 2026 bentzn -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+# Security
+
+## Reporting a vulnerability
+
+Write to **info@raposza.com**. Say what you found, how to reproduce it, and
+what you think it lets an attacker do. You will get an acknowledgement; if the
+finding is valid you will be told what is being done about it and when the fix
+lands.
+
+Please do not open a public issue for a vulnerability before it is fixed.
+
+There is no bug bounty.
+
+## What is in scope
+
+This repository: `oidc-core`, `oidc-server`, the web UI under
+`oidc-server/src/main/resources/static/ui/`, and the three shell scripts.
+
+**Not in scope: what this service is pointed at.** A participant, a validator
+or any other relying party configured to trust this issuer is that project's
+concern. Report anything you find there to its maintainers.
+
+## Supported versions
+
+Only the current tip of the default branch. There are no maintenance branches
+and no backports. Published artefacts are never replaced - a released
+coordinate on Maven Central is immutable - so a fix arrives as a new version.
+
+## When this was last reviewed
+
+**Reviewed 2026-09-19 for 0.3.0**, against the tree as it then stood -
+`docs/security-review.md` carries the result and the four statements that
+review corrected.
+
+## The short statement of the model
+
+**Raposza OIDC is a test identity provider and it is not hardened. It is not a
+replacement for Keycloak and it is not trying to be.** What it promises is
+PROTOCOL FIDELITY: a relying party configured against it moves to a real
+OpenID Provider by changing settings and nothing else. Five consequences you
+should read before running it:
+
+* **It serves its own PRIVATE keys** at `/oauth2/jwks-private`. Anyone who can
+  reach that path can sign a token this issuer's consumers accept. The admin
+  credential closes it; with no password set it is open and the service says
+  so at startup, in a WARN line.
+* **It mints a token for any subject with any claims**, at `/mint`, with no
+  authentication at all. That endpoint is deliberate and it stays - it is the
+  reason the service exists - and it is why the service belongs on a machine
+  and a network you control.
+* **User passwords and client secrets are stored in clear text**, in
+  `users.json` and `clients.json` beside the key set. The comparison is
+  constant-time and that is the whole of what is done for them: no hashing, no
+  lockout, no password policy, no MFA. They are a test system's users.
+* **There is no rate limiting, no revocation and no audit log.** A token this
+  service issued is valid until it expires; nothing can withdraw it.
+* **It listens on every interface by default** and terminates no TLS. Behind a
+  proxy, pin `raposza.jwtmint.issuer` to the external origin - RFC 8414
+  section 3.3 compares issuers literally, and an unpinned service has every
+  token rejected by every validator.
+
+**What it does check, because a real provider does.** Once one client is
+registered, an unknown `client_id`, an unregistered `redirect_uri` and a wrong
+or unexpected `client_secret` are all refused, and the first two are refused
+WITHOUT redirecting the error - OpenID Connect Core 1.0 section 3.1.2.6. While
+no client is registered none of the three is checked, and the service says so
+at startup. That is correctness, not hardening: it exists so that a component
+which works here also works against a real provider.
+
+`docs/security-review.md` is the full posture document: what executes, what is
+downloaded and how its integrity is established, what listens and with what
+authentication, what is written to disk, what key material is held, what
+leaves the machine, and the limitations that follow.

@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (c) 2026 bentzn
+  SPDX-License-Identifier: Apache-2.0
+  Author Claude/bentzn
+
+  The HTTP half: the discovery document, the token endpoint, the OpenID Connect
+  browser flow, the mint and the admin surface. It adds an HTTP surface to
+  oidc-core; it encodes no JWK of its own.
+
+  THE SOURCES CAME FROM `basenet/shared/jwtmint`, NOT FROM `raposza/apps/jwtmint`
+  - measured 2026-09-19. BaseNet's copy is the strict superset: it carries the
+  browser flow that the Sandbox's copy does not have at all, and it already
+  carries the port correction that leaves about forty stale `33301` mentions in
+  the Raposza copy. R-11 feared the copy would fall BEHIND; it went ahead.
+
+  THE REPACKAGE EXECUTION ID IS `repackage` AND THAT IS NOT COSMETIC.
+  spring-boot-starter-parent already declares an execution of that id in its
+  pluginManagement, so an execution under any OTHER id does not override it -
+  it is added beside it, and the module gets two repackages. The first rewrites
+  the plain jar in place with Main-Class = JarLauncher; the second reads that
+  jar, takes JarLauncher for the application's own main class, and writes it as
+  Start-Class. The result launches itself for ever:
+
+    JarLauncher.main -> Launcher.launch -> Class.forName
+      -> JarLauncher.main -> ... -> StackOverflowError
+
+  Nothing in the build says so. `mvn package` is green, the jar is the right
+  size, and the failure arrives only when it is run. Matching the id merges the
+  two into one.
+
+  mainClass is stated for the same reason: the parent configures it as
+  ${start-class}, a property this module does not set.
+
+  CLASSIFIER `app`, so the runnable jar and the plain one have different names
+  rather than being the same name at different times - which is what a launcher
+  that finds its jar by glob depends on.
+
+  THE REPACKAGE IS UNCONDITIONAL, not behind a profile. In this tree the
+  runnable jar IS the deliverable; `apps/jwtmint` put it behind `-Papp` because
+  it sat inside a reactor whose gate reached the package phase on every run.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.raposza.oidc</groupId>
+        <artifactId>raposza-oidc</artifactId>
+        <version>0.3.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>raposza-oidc-server</artifactId>
+    <name>Raposza OIDC - server</name>
+    <description>The HTTP half of Raposza OIDC: discovery, JWKS, the token endpoint, the OpenID Connect browser flow, the mint, the admin surface and the web UI.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.raposza.oidc</groupId>
+            <artifactId>raposza-oidc-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+        <!-- Swagger UI and the OpenAPI document, generated from the
+             controllers rather than hand-written beside them. A specification
+             maintained by hand is a specification that is wrong within a week,
+             and this API is the one a caller has to read before it can ask for
+             anything. -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>repackage</id>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                        <configuration>
+                            <classifier>app</classifier>
+                            <mainClass>com.raposza.oidc.OidcApp</mainClass>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

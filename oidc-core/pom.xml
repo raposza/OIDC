@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (c) 2026 bentzn
+  SPDX-License-Identifier: Apache-2.0
+  Author Claude/bentzn
+
+  The JOSE half: key material, algorithms, the signer and the token shapes.
+  Nimbus and the JDK, and NOTHING ELSE - no Spring, no web, no logging
+  framework. That is the whole reason the cut is here: `raposza-auth` in the
+  Raposza tree and `oidc-server` in this one both need these eight classes, and
+  a module that dragged Spring in could not be a dependency of the first.
+
+  The eight are D-638's transitive closure, measured 2026-09-07 and unchanged:
+  JwksMaterial, JwtMinter, MintAlg, MintKeys, MintSigner, TokenException,
+  TokenShape, TokenSpec.
+
+  THE PACKAGE KEEPS ITS NAME, `com.raposza.jwt`. Nothing that imports these
+  classes today changes when it starts resolving them from here instead -
+  `raposza_oidc.md` section 4.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.raposza.oidc</groupId>
+        <artifactId>raposza-oidc</artifactId>
+        <version>0.3.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>raposza-oidc-core</artifactId>
+    <name>Raposza OIDC - core</name>
+    <!-- Central requires a description on the artefact's own POM, and
+         description is one of the few elements Maven does NOT inherit. -->
+    <description>The JOSE half of Raposza OIDC: key material, algorithms, the signer and the token shapes. Nimbus and the JDK, nothing else.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

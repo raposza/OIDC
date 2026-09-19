@@ -1,0 +1,23 @@
+# Copyright (c) 2026 bentzn
+# SPDX-License-Identifier: Apache-2.0
+#
+# This repository ships NO agent instruction file - a reader, person or
+# otherwise, starts at README.md. The names below are listed so that one
+# cannot arrive by accident.
+CLAUDE.md
+GEMINI.md
+.cursorrules
+
+# The key directory, wherever it is put by default.
+keys/
+*.jwks
+
+# Editors and desktops
+*.swp
+*~
+.idea/
+.vscode/
+.DS_Store
+
+# Maven
+target/

@@ -1,0 +1,377 @@
+/*
+  Copyright (c) 2026 bentzn
+  SPDX-License-Identifier: Apache-2.0
+  Author Claude/bentzn
+
+  Raposza OIDC - the whole stylesheet.
+
+  THE LOOK AND FEEL IS DevTools3's, on the operator's instruction of
+  2026-09-19: its palette, its card, its segmented control, its form rows, its
+  output pane with the ok / err rail. The variables and the rules that carry
+  those are its own, kept to the letter so the two tools read as one set. What
+  is added here is only what this UI has and that one does not - a table of
+  rows with an action column, and the `.right` alignment on the tab bar.
+
+  NO FRAMEWORK. One file - D-774.
+*/
+
+:root {
+  --bg: #f5f6f8;
+  --card-bg: #ffffff;
+  --fg: #1f2328;
+  --fg-muted: #57606a;
+  --border: #d0d7de;
+  --accent: #0969da;
+  --accent-hover: #0550a0;
+  --ok: #1a7f37;
+  --error: #cf222e;
+  --code-bg: #f6f8fa;
+  --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --radius: 6px;
+  --shadow: 0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.06);
+  --content-max: 960px;
+  --content-pad: 16px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+header {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.header-inner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 24px var(--content-pad);
+}
+
+header h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+header .subtitle {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+main {
+  max-width: var(--content-max);
+  margin: 24px auto;
+  padding: 0 var(--content-pad);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  box-shadow: var(--shadow);
+}
+
+.card h2 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.card .hint {
+  margin: 0 0 16px;
+  color: var(--fg-muted);
+  font-size: 13px;
+}
+
+/* Forms */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--fg-muted);
+  font-weight: 500;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="number"],
+select {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--fg);
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="number"]:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(9,105,218,.15);
+}
+
+textarea {
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--code-bg);
+  color: var(--fg);
+  resize: vertical;
+  width: 100%;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+
+textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(9,105,218,.15);
+}
+
+textarea[readonly] {
+  background: var(--code-bg);
+  cursor: text;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+button {
+  font: inherit;
+  font-weight: 500;
+  font-size: 13px;
+  padding: 6px 16px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease;
+}
+
+button:not(.secondary):not(.seg-btn) {
+  background: var(--accent);
+  color: #fff;
+}
+
+button:not(.secondary):not(.seg-btn):hover {
+  background: var(--accent-hover);
+}
+
+button.secondary {
+  background: var(--card-bg);
+  color: var(--fg);
+  border-color: var(--border);
+}
+
+button.secondary:hover {
+  background: var(--code-bg);
+}
+
+button.small {
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+button.danger {
+  background: var(--card-bg);
+  color: var(--error);
+  border-color: var(--border);
+}
+
+button.danger:hover {
+  background: var(--error);
+  color: #fff;
+  border-color: var(--error);
+}
+
+.output {
+  margin: 12px 0 0;
+  padding: 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  min-height: 44px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-x: auto;
+}
+
+.output.ok { border-left: 3px solid var(--ok); }
+.output.err { border-left: 3px solid var(--error); }
+
+/* Endpoints table - also the key, user and fact tables */
+.endpoints {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.endpoints th,
+.endpoints td {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.endpoints th {
+  font-weight: 600;
+  color: var(--fg-muted);
+  background: var(--code-bg);
+}
+
+.endpoints tr:last-child td { border-bottom: none; }
+
+.endpoints code,
+.endpoints td.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+/* The label column of a two-column fact table. */
+.endpoints td.name {
+  color: var(--fg-muted);
+  width: 12rem;
+}
+
+/* The action column: buttons, right, not stretched. */
+.endpoints td.act {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.endpoints td.act button {
+  margin-left: 6px;
+}
+
+footer {
+  text-align: center;
+  padding: 24px 16px 32px;
+  color: var(--fg-muted);
+  font-size: 12px;
+}
+
+/* Segmented control - the tab bar. DevTools3's second pass: both items carry
+   the same light blue and selection is a border, so the selected one does not
+   read as the clickable one. Border is 2px in both states so nothing shifts. */
+.seg {
+  display: flex;
+  gap: 8px;
+  padding: 0;
+  background: transparent;
+  border: none;
+}
+
+.seg-btn {
+  color: var(--fg);
+  background: rgba(9,105,218,.10);
+  border: 2px solid transparent;
+  border-radius: 6px;
+  padding: 6px 20px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  box-shadow: none;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.seg-btn:hover {
+  color: var(--fg);
+  background: rgba(9,105,218,.16);
+}
+
+.seg-btn.active {
+  color: var(--fg);
+  background: rgba(9,105,218,.10);
+  border-color: var(--accent);
+}
+
+/* Sign out sits at the far end of the same bar rather than in the header,
+   so there is one row of controls rather than two. */
+.seg-btn.right {
+  margin-left: auto;
+  background: transparent;
+  color: var(--fg-muted);
+}
+
+.seg-btn.right:hover {
+  background: var(--code-bg);
+  color: var(--fg);
+}
+
+.status {
+  margin: 0;
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--fg-muted);
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.status.ok {
+  color: var(--ok);
+  border-left: 3px solid var(--ok);
+}
+
+.status.err {
+  color: var(--error);
+  border-left: 3px solid var(--error);
+}
+
+.hidden {
+  display: none;
+}
+
+/* .form label sets display:flex and outranks .hidden on specificity, so form
+   rows that are shown or hidden dynamically need this. */
+.form label.hidden {
+  display: none;
+}

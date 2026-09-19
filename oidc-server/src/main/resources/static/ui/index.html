@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<!--
+  Copyright (c) 2026 bentzn
+  SPDX-License-Identifier: Apache-2.0
+  Author Claude/bentzn
+
+  Raposza OIDC - the web UI.
+
+  ONE PAGE, FIVE CARDS, no framework and no build step - D-774,
+  `raposza_oidc.md` section 8.
+
+  THE LOOK AND FEEL IS DevTools3's, on the operator's instruction of
+  2026-09-19: the same header, `.card` sections, `.seg` segmented control,
+  `.form` / `.grid` rows, `.actions` button rows and `.output` panes with their
+  ok / err rails. A person who has used one should not have to learn the other.
+
+  It lives under /ui/ rather than / because AdminController already answers /
+  with a plain-text index of the endpoints, and that is a surface callers use.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Raposza OIDC</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <h1>Raposza OIDC</h1>
+    <p class="subtitle">Identity provider for development &amp; test &mdash; not for production use</p>
+  </div>
+</header>
+
+<main>
+
+  <!-- THE GATE. Shown when a guarded call answers 401. With no admin password
+       configured nothing is guarded, so this never appears. -->
+  <section class="card hidden" id="gate">
+    <h2>Sign in</h2>
+    <p class="hint">Key and user management need the admin credential.</p>
+    <form class="form" id="form-login">
+      <div class="grid">
+        <label>User <input id="login-user" type="text" value="admin" autocomplete="username"></label>
+        <label>Password <input id="login-password" type="password" autocomplete="current-password"></label>
+      </div>
+      <div class="actions"><button type="submit">Sign in</button></div>
+    </form>
+    <p class="status err hidden" id="login-error"></p>
+  </section>
+
+  <div id="app" class="hidden">
+
+    <div class="seg" id="tabs">
+      <button type="button" class="seg-btn active" data-tab="overview">Overview</button>
+      <button type="button" class="seg-btn" data-tab="keys">Keys</button>
+      <button type="button" class="seg-btn" data-tab="users">Users</button>
+      <button type="button" class="seg-btn" data-tab="clients">Clients</button>
+      <button type="button" class="seg-btn" data-tab="mint">Mint</button>
+      <button type="button" class="seg-btn" data-tab="inspect">Inspect</button>
+      <button type="button" class="seg-btn right" id="btn-signout">Sign out</button>
+    </div>
+
+    <p class="status err hidden" id="oops"></p>
+
+    <!-- ========================================================== overview -->
+    <section class="card tab" id="tab-overview">
+      <h2>What this service is</h2>
+      <p class="hint">Where its keys and users live, and what it will tell a consumer about itself.</p>
+      <table class="endpoints"><tbody id="overview-facts"></tbody></table>
+
+      <p class="status err hidden" id="overview-warn"></p>
+
+      <h2 style="margin-top:20px">What consumers are given</h2>
+      <p class="hint">Point a participant at the JWKS. Point a relying party at the discovery document.</p>
+      <table class="endpoints"><tbody id="overview-urls"></tbody></table>
+    </section>
+
+    <!-- ============================================================== keys -->
+    <section class="card tab hidden" id="tab-keys">
+      <h2>Keys</h2>
+      <p class="hint">
+        <b>published</b> is the column that surprises people: a symmetric key has
+        no public half, so it is not in the JWKS and a participant configured
+        with a JWKS url can never verify an HS* token.
+      </p>
+      <div class="actions">
+        <button type="button" class="secondary" id="btn-keys-reload">Reload from disk</button>
+      </div>
+      <table class="endpoints">
+        <thead><tr>
+          <th>kid</th><th>alg</th><th>type</th><th>detail</th>
+          <th>published</th><th>thumbprint</th><th></th>
+        </tr></thead>
+        <tbody id="keys-rows"></tbody>
+      </table>
+    </section>
+
+    <section class="card tab hidden" id="tab-keys-add">
+      <h2>Add a key</h2>
+      <p class="hint">The twelve standard keys are generated for you. This is for a key a consumer expects under a name of its own.</p>
+      <form class="form" id="form-key-add">
+        <div class="grid">
+          <label>kid <input id="key-kid" type="text" placeholder="wallet-ui" required></label>
+          <label>alg
+            <select id="key-alg">
+              <option>RS256</option><option>RS384</option><option>RS512</option>
+              <option>PS256</option><option>PS384</option><option>PS512</option>
+              <option>ES256</option><option>ES384</option><option>ES512</option>
+              <option>HS256</option><option>HS384</option><option>HS512</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions"><button type="submit">Add</button></div>
+      </form>
+    </section>
+
+    <!-- ============================================================= users -->
+    <section class="card tab hidden" id="tab-users">
+      <h2>Users</h2>
+      <p class="hint">
+        The name is the <code>sub</code> of every token issued to that person.
+        Passwords are stored as typed, in <code id="users-file"></code>. This is
+        a test system and nothing about it is safe.
+      </p>
+      <table class="endpoints"><tbody id="users-rows"></tbody></table>
+    </section>
+
+    <section class="card tab hidden" id="tab-users-add">
+      <h2>Add a user, or change a password</h2>
+      <form class="form" id="form-user">
+        <div class="grid">
+          <label>Name <input id="user-name" type="text" placeholder="alice" required></label>
+          <label>Password <input id="user-password" type="text" required></label>
+        </div>
+        <div class="actions"><button type="submit">Save</button></div>
+      </form>
+    </section>
+
+    <!-- =========================================================== clients -->
+    <section class="card tab hidden" id="tab-clients">
+      <h2>Clients</h2>
+      <p class="hint">
+        The three checks a real OpenID Provider makes and this service did not:
+        an unknown <code>client_id</code> is refused, a <code>redirect_uri</code>
+        that is not registered for the client is refused, and a
+        <code>client_secret</code> is checked. <b>While this list is empty none
+        of them happen</b> &mdash; which is how a deployment adopts the registry
+        without a flag day, and also why a component can work here and fail
+        against Keycloak until it is filled in.
+      </p>
+      <p class="status hidden" id="clients-mode"></p>
+      <table class="endpoints">
+        <thead><tr><th>client_id</th><th>authenticates</th><th>redirect URIs</th><th></th></tr></thead>
+        <tbody id="clients-rows"></tbody>
+      </table>
+    </section>
+
+    <section class="card tab hidden" id="tab-clients-add">
+      <h2>Register a client, or replace one</h2>
+      <p class="hint">A blank secret makes it a PUBLIC client, which must then authenticate with <code>none</code>. Registering the first client turns the checks on for every client.</p>
+      <form class="form" id="form-client">
+        <div class="grid">
+          <label>client_id <input id="client-id" type="text" placeholder="wallet-ui" required></label>
+          <label>secret &mdash; blank for a public client <input id="client-secret" type="text"></label>
+        </div>
+        <label>redirect URIs, one per line
+          <textarea id="client-uris" rows="3" spellcheck="false"
+                    placeholder="http://wallet.localhost:4000/cb" required></textarea>
+        </label>
+        <div class="actions"><button type="submit">Register</button></div>
+      </form>
+    </section>
+
+    <!-- ============================================================== mint -->
+    <section class="card tab hidden" id="tab-mint">
+      <h2>Mint a token</h2>
+      <p class="hint">
+        This posts to <code>/mint</code>, the same endpoint a script calls, so
+        what can be asked for here is exactly what can be asked for there &mdash;
+        including tokens a participant must refuse.
+      </p>
+      <form class="form" id="form-mint">
+        <div class="grid">
+          <label>Subject <input id="mint-sub" type="text" placeholder="participant_admin"></label>
+          <label>Audience <input id="mint-aud" type="text" placeholder="https://daml.com/jwt/aud/participant/sandbox"></label>
+          <label>Scope <input id="mint-scope" type="text" placeholder="daml_ledger_api"></label>
+          <label>Algorithm
+            <select id="mint-alg">
+              <option value="">(server default)</option>
+              <option>RS256</option><option>RS384</option><option>RS512</option>
+              <option>PS256</option><option>PS384</option><option>PS512</option>
+              <option>ES256</option><option>ES384</option><option>ES512</option>
+              <option>HS256</option><option>HS384</option><option>HS512</option>
+              <option>NONE</option>
+            </select>
+          </label>
+          <label>Shape
+            <select id="mint-shape">
+              <option value="">(none &mdash; only what is asked for)</option>
+              <option>AUDIENCE</option><option>SCOPE</option>
+              <option>CUSTOM</option><option>RAW</option>
+            </select>
+          </label>
+          <label>Lifetime, seconds <input id="mint-ttl" type="text" placeholder="3600"></label>
+        </div>
+        <label>Claims, merged last
+          <textarea id="mint-claims" rows="3" spellcheck="false" placeholder='{"exp": 1}'></textarea>
+        </label>
+        <div class="actions"><button type="submit">Mint</button></div>
+      </form>
+
+      <div class="hidden" id="mint-out">
+        <label style="margin-top:16px">The token
+          <textarea id="mint-token" rows="4" readonly spellcheck="false"></textarea>
+        </label>
+        <div class="actions">
+          <button type="button" class="secondary" id="btn-mint-copy">Copy</button>
+          <button type="button" class="secondary" id="btn-mint-inspect">Inspect it</button>
+        </div>
+        <pre class="output" id="mint-claims-out"></pre>
+      </div>
+    </section>
+
+    <!-- =========================================================== inspect -->
+    <section class="card tab hidden" id="tab-inspect">
+      <h2>Inspect a token</h2>
+      <p class="hint">
+        Header, claims, expiry, and whether a key in this set produced the
+        signature. An expired token is described rather than refused &mdash;
+        minting one is something this service is asked to do.
+      </p>
+      <form class="form" id="form-inspect">
+        <label>Token
+          <textarea id="inspect-token" rows="4" spellcheck="false" required></textarea>
+        </label>
+        <label>JWKS &mdash; optional, to check the token against a FOREIGN set
+          <textarea id="inspect-jwks" rows="5" spellcheck="false"
+                    placeholder='{"keys":[{"kty":"RSA","kid":"rs256","n":"...","e":"AQAB"}]}'></textarea>
+        </label>
+        <p class="hint">
+          "This service signed it" is rarely the question. What a participant
+          will accept depends on the JWKS its <code>auth-services</code> block
+          names &mdash; which may be an older copy of this one, a different mint,
+          or Keycloak. Paste that set here and both answers are reported.
+        </p>
+        <div class="actions"><button type="submit">Inspect</button></div>
+      </form>
+
+      <div class="hidden" id="inspect-out">
+        <p class="status" id="inspect-verdict"></p>
+        <p class="status hidden" id="inspect-foreign"></p>
+        <table class="endpoints"><tbody id="inspect-facts"></tbody></table>
+        <pre class="output" id="inspect-claims"></pre>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer>Raposza OIDC &mdash; it publishes its own private keys. Do not run it anywhere that matters.</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Copyright (c) 2026 bentzn
+  SPDX-License-Identifier: Apache-2.0
+  Author Claude/bentzn
+
+  Raposza OIDC - the shared identity provider. `raposza_oidc.md` is the
+  authority; D-774 is the decision and `todo.md` A-32 the agreed-work row.
+
+  THE PARENT IS spring-boot-starter-parent, NOT a Raposza parent, and that is
+  carried over from `apps/jwtmint`'s pom with its reasoning intact: importing
+  spring-boot-dependencies into a module whose parent already pins Jackson,
+  slf4j and JUnit leaves the winner of each collision decided by
+  dependencyManagement precedence, and the losing case is a NoSuchMethodError
+  at the first request rather than anything the build reports.
+
+  THIS TREE HAS ITS OWN REACTOR and is named by neither `raposza/pom.xml` nor
+  `private/tools/pom.xml`. `workspace_structure.md` section 2 requires a tree's
+  boundary to be STATED rather than read off its directory name, and
+  `raposza_oidc.md` section 4 is that statement.
+
+  NIMBUS IS PINNED rather than left to Boot's management, because the JOSE code
+  in oidc-core is compiled against this version and `raposza-auth` resolves the
+  same one. Bump both together or neither.
+
+  THE GROUP IS `com.raposza.oidc` - his correction, 2026-09-19 - NOT
+  `com.raposza`, which is what the rest of the workspace publishes under. The
+  local repository path moves with it, to `com/raposza/oidc/...`, and two
+  places look the jar up by that path rather than by coordinate:
+  `raposza/run-jwtmint.sh` and `JwtMintProcess.STR_PATH_ARTIFACT`. Both are
+  corrected in the same delivery. A subgroup needs no separate verification at
+  Central: the TXT record that proves `com.raposza` covers everything beneath
+  it.
+
+  THE VERSION IS 0.3.0-SNAPSHOT AND THE RELEASE IS 0.3.0 - his answer to OD-6,
+  the same day. It develops as a SNAPSHOT and the push flips it, because Maven
+  Central accepts a coordinate ONCE: a 0.3.0 rebuilt after the security review
+  would have nowhere to go. The number deliberately does not track `raposza/`'s
+  0.1.0-SNAPSHOT - the two trees release separately, and
+  `raposza.oidc.version` in `raposza/platform/pom.xml` is the one place that
+  names it.
+
+  MAVEN CENTRAL IS THE TARGET - his answer to OD-5. What Central requires of
+  the artefacts is at the bottom of this file; what it requires of the POM is
+  immediately below.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.16</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.raposza.oidc</groupId>
+    <artifactId>raposza-oidc</artifactId>
+    <version>0.3.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>Raposza OIDC</name>
+    <description>The shared identity provider: a JWKS, an OpenID Provider surface and a mint.</description>
+    <url child.project.url.inherit.append.path="false">https://github.com/raposza/OIDC</url>
+    <inceptionYear>2026</inceptionYear>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <!-- NO EMAIL ADDRESS. Central wants a developer entry and is satisfied by a
+         name and an organisation. An address written here is published on the
+         internet permanently and cannot be withdrawn, so putting one in is the
+         operator's to do, not mine. -->
+    <developers>
+        <developer>
+            <id>bentzn</id>
+            <name>Thomas Elkjær Bentsen</name>
+            <organization>Raposza</organization>
+            <organizationUrl>https://github.com/raposza</organizationUrl>
+        </developer>
+    </developers>
+
+    <!-- The inherit.append.path attributes stop Maven appending each module's
+         artifactId to these, which would otherwise publish
+         `.../OIDC/oidc-core` - a URL that resolves to nothing. -->
+    <scm child.scm.connection.inherit.append.path="false"
+         child.scm.developerConnection.inherit.append.path="false"
+         child.scm.url.inherit.append.path="false">
+        <connection>scm:git:https://github.com/raposza/OIDC.git</connection>
+        <developerConnection>scm:git:git@github.com:raposza/OIDC.git</developerConnection>
+        <url>https://github.com/raposza/OIDC</url>
+    </scm>
+
+    <modules>
+        <module>oidc-core</module>
+        <module>oidc-server</module>
+    </modules>
+
+    <properties>
+        <java.version>21</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <nimbus.jose.version>9.40</nimbus.jose.version>
+        <!-- The 2.8 line is the Spring Boot 3.x one; springdoc 3.x is for
+             Boot 4. Do NOT go below 2.8: springdoc 2.5 breaks on Spring
+             Framework 6.2 with a NoSuchMethodError on ControllerAdviceBean,
+             triggered by having a @RestControllerAdvice at all - which
+             oidc-server does, in MintErrors. -->
+        <springdoc.version>2.8.17</springdoc.version>
+
+        <!-- PINNED RATHER THAN INHERITED. spring-boot-starter-parent manages
+             some Maven plugins and not others, and which ones is not something
+             to depend on. A version that is stated cannot move under the
+             build. -->
+        <maven.source.version>3.4.0</maven.source.version>
+        <maven.javadoc.version>3.12.0</maven.javadoc.version>
+        <maven.gpg.version>3.2.8</maven.gpg.version>
+        <central.publishing.version>0.11.0</central.publishing.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.raposza.oidc</groupId>
+                <artifactId>raposza-oidc-core</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>nimbus-jose-jwt</artifactId>
+                <version>${nimbus.jose.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <!-- WHAT CENTRAL REQUIRES OF EVERY PUBLISHED FILE: a sources jar and a
+         javadoc jar beside the main one, .md5 and .sha1 checksums, and a .asc
+         GPG signature over all of it. The POM requirements - name,
+         description, url, a licence, a developer, scm - are above.
+
+         THE TWO JAR PLUGINS ARE MANAGED HERE AND DECLARED IN THE MODULES, not
+         declared here. A plugin in this file's <plugins> also runs against
+         THIS project, which is packaging `pom` and has no sources; what the
+         source and javadoc plugins then do is version-dependent and not worth
+         depending on. Declaring them where there is code to read removes the
+         question.
+
+         THEY ARE IN THE ORDINARY BUILD, not behind the release profile, so
+         `./build.sh` proves the files that get published. Signing is not: it
+         needs a key, and a build that demands one to run the tests is a build
+         nobody can run. -->
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>${maven.source.version}</version>
+                    <executions>
+                        <execution>
+                            <id>attach-sources</id>
+                            <goals>
+                                <goal>jar-no-fork</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>${maven.javadoc.version}</version>
+                    <configuration>
+                        <!-- DOCLINT IS OFF DELIBERATELY. The javadoc jar is a
+                             distribution requirement, not a quality gate.
+                             Turning doclint loose on a tree that has never run
+                             it fails the build on heading order and missing
+                             @param tags - formatting, not defects - and the
+                             loop costs more than it finds. Javadoc AS a gate
+                             is a separate decision. -->
+                        <doclint>none</doclint>
+                        <quiet>true</quiet>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>attach-javadocs</id>
+                            <goals>
+                                <goal>jar</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <!-- Binds to the DEPLOY phase and replaces maven-deploy-plugin,
+                 which is what extensions=true does. `mvn install` never
+                 reaches it, so build.sh and test.sh cannot publish anything.
+
+                 THE TOKEN IS NOT IN THIS TREE and never will be. It lives in
+                 ~/.m2/settings.xml under a <server> whose id is the one named
+                 here. -->
+            <plugin>
+                <groupId>org.sonatype.central</groupId>
+                <artifactId>central-publishing-maven-plugin</artifactId>
+                <version>${central.publishing.version}</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <publishingServerId>central</publishingServerId>
+                    <!-- FALSE ON PURPOSE. The upload stops at the portal and
+                         waits to be released by hand. A coordinate on Central
+                         can never be replaced, only superseded, and the last
+                         gate before a door that does not reopen should not be
+                         a build flag. -->
+                    <autoPublish>false</autoPublish>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!-- `mvn -Prelease deploy`, and nothing else uses it. -->
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>${maven.gpg.version}</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
+</project>
