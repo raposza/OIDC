@@ -53,13 +53,16 @@ import java.util.Set;
  * plan on the absence of this - `oidcc-prompt-none-logged-in`,
  * `oidcc-id-token-hint` and `oidcc-max-age-10000`, measured 2026-09-19.
  *
- * <h2>The request object is refused, not ignored</h2>
+ * <h2>An unsigned request object is processed, since 0.4.0</h2>
  *
- * Neither `request` nor `request_uri` is implemented. Core 6.1 and 6.2 name
- * the two error codes for exactly that, and they are returned. IGNORING the
- * parameter is the one thing a provider must not do: the `state` and `nonce`
- * the client put inside the object then never come back, which is how
- * `oidcc-unsigned-request-object-...` failed on both of them.
+ * `request` by value with `alg: none` is merged into the parameters before
+ * anything is checked - {@link OidcRequestObject} says what wins and why. A
+ * signed or broken one is `invalid_request_object`. `request_uri` is still
+ * refused with `request_uri_not_supported`, Core 6.2. IGNORING either parameter
+ * is the one thing a provider must not do: the `state` and `nonce` the client
+ * put inside the object then never come back, which is how
+ * `oidcc-unsigned-request-object-...` failed on both of them in 0.3.0's first
+ * run.
  *
  * Author Claude/bentzn
  */
@@ -75,7 +78,7 @@ public class OidcController {
     /** What the login form carries back to this endpoint, beside what was typed. */
     private static final Set<String> SET_PARAM_CARRIED = Set.of("response_type", "client_id",
             "redirect_uri", "scope", "state", "nonce", "code_challenge", "code_challenge_method",
-            "audience", "response_mode");
+            "audience", "response_mode", "claims");
 
     private final OidcFlow flow;
 
@@ -108,7 +111,7 @@ public class OidcController {
      * is answered with a code and no page at all, unless `prompt=login` or a
      * `max_age` says otherwise.
      *
-     * @param mapParam the request's parameters, query or form
+     * @param mapQuery the request's parameters, query or form
      * @param strSid the session cookie, or null
      * @return the login page, an error page, or a redirect to the client
      */
@@ -121,8 +124,13 @@ public class OidcController {
                     + " one; `prompt=login` and `max_age` override that.")
     @RequestMapping(value = IssuerResolver.STR_PATH_AUTHORIZE,
             method = {RequestMethod.GET, RequestMethod.POST})
-    public ResponseEntity<String> authorize(@RequestParam Map<String, String> mapParam,
+    public ResponseEntity<String> authorize(@RequestParam Map<String, String> mapQuery,
             @CookieValue(name = OidcSessions.STR_COOKIE, required = false) String strSid) {
+        // THE REQUEST OBJECT FIRST, so its redirect_uri is the one every check
+        // below is made against - Core 6.1 and `oidcc-ensure-request-object-
+        // with-redirect-uri`.
+        OidcRequestObject.Merged merged = OidcRequestObject.merge(mapQuery);
+        Map<String, String> mapParam = merged.mapParam();
         String idClient = mapParam.get("client_id");
         String strRedirect = mapParam.get("redirect_uri");
         // NEVER REDIRECTED. Core 3.1.2.6 and RFC 6749 4.1.2.1: without a valid
@@ -154,10 +162,8 @@ public class OidcController {
         // REFUSED RATHER THAN IGNORED - Core 6.1 and 6.2. A request object
         // carries its own state and nonce, so a provider that reads past it
         // answers with the wrong ones.
-        if (mapParam.containsKey("request")) {
-            return redirect(strRedirect, mapError("request_not_supported",
-                    "this provider does not accept a request object", strState));
-        }
+        if (merged.strError() != null)
+            return redirect(strRedirect, mapError("invalid_request_object", merged.strError(), strState));
         if (mapParam.containsKey("request_uri")) {
             return redirect(strRedirect, mapError("request_uri_not_supported",
                     "this provider does not accept a request_uri", strState));
@@ -171,6 +177,14 @@ public class OidcController {
         if (!isBlank(strChallenge) && !OidcFlow.STR_METHOD_S256.equals(mapParam.get("code_challenge_method"))) {
             return redirect(strRedirect, mapError("invalid_request",
                     "code_challenge_method must be S256", strState));
+        }
+        // Core 5.5: read now so a malformed one is answered here, by name,
+        // rather than after the person has signed in.
+        try {
+            OidcClaims.mapRequested(mapParam.get("claims"));
+        }
+        catch (IllegalArgumentException ex) {
+            return redirect(strRedirect, mapError("invalid_request", ex.getMessage(), strState));
         }
         String strMaxAge = mapParam.get("max_age");
         if (!isBlank(strMaxAge) && !isDigits(strMaxAge)) {
@@ -241,8 +255,8 @@ public class OidcController {
             @RequestParam(name = "access_token", required = false) String strBodyToken) {
         String strHeaderToken = strBearer(strAuthorization);
         String strToken = strHeaderToken != null ? strHeaderToken : blankToNull(strBodyToken);
-        String strSub = strToken == null ? null : flow.strSubjectOf(strToken);
-        if (strSub == null) {
+        Map<String, Object> map = strToken == null ? null : flow.mapUserInfo(strToken);
+        if (map == null) {
             // RFC 6750 section 3: no token gets the bare challenge, a bad one
             // gets invalid_token.
             String strChallenge = "Bearer realm=\"" + resolver.strIssuer() + "\""
@@ -250,9 +264,6 @@ public class OidcController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .header(HttpHeaders.WWW_AUTHENTICATE, strChallenge).build();
         }
-        Map<String, Object> map = new LinkedHashMap<>();
-        map.put("sub", strSub);
-        map.put("preferred_username", strSub);
         return ResponseEntity.ok().header(HttpHeaders.CACHE_CONTROL, STR_NO_STORE).body(map);
     }
 
@@ -274,6 +285,10 @@ public class OidcController {
             method = {RequestMethod.GET, RequestMethod.POST})
     public ResponseEntity<String> logout(@RequestParam Map<String, String> mapParam,
             @CookieValue(name = OidcSessions.STR_COOKIE, required = false) String strSid) {
+        String strRefused = strLogoutRefusal(mapParam);
+        if (strRefused != null)
+            return page(HttpStatus.BAD_REQUEST, "Sign-out refused", strRefused);
+
         sessions.close(strSid);
         String strClear = strCookie("", true);
         String strPost = mapParam.get("post_logout_redirect_uri");
@@ -288,6 +303,47 @@ public class OidcController {
                 .header(HttpHeaders.SET_COOKIE, strClear)
                 .body(strHead("Signed out") + "<h1>Signed out</h1>\n<p>"
                         + "This browser is no longer signed in.</p>\n</body></html>\n");
+    }
+
+
+    /**
+     * WHERE A LOGOUT MAY SEND THE BROWSER - OpenID Connect RP-Initiated Logout 1.0:
+     * a `post_logout_redirect_uri` the provider has registered for the client.
+     * Before 0.4.0 any absolute http(s) URI was followed, so a relying party
+     * built here could send its users anywhere after logout and break against
+     * a real provider - and a link on this issuer's address could land a person
+     * on any site.
+     *
+     * The URIs checked are the client's REGISTERED REDIRECT URIs. This service
+     * keeps no second list, and Keycloak's own default for "valid post logout
+     * redirect URIs" is exactly that - its `+`. The client is `client_id`, or
+     * the `azp` or single `aud` of `id_token_hint`. Like every other check the
+     * registry makes, none of this applies while it is empty.
+     *
+     * REFUSED, NOT REDIRECTED, and the session is NOT ended: the URI is the one
+     * thing in the request that cannot be trusted, and Keycloak answers the same
+     * request with an error page and the person still signed in.
+     *
+     * @param mapParam the logout request's parameters
+     * @return why it is refused, or null when it may proceed
+     */
+    String strLogoutRefusal(Map<String, String> mapParam) {
+        String strPost = mapParam.get("post_logout_redirect_uri");
+        if (!clients.flagStrict() || !isRedirectUri(strPost))
+            return null;
+
+        String idClient = blankToNull(mapParam.get("client_id"));
+        if (idClient == null)
+            idClient = flow.strClientOfHint(mapParam.get("id_token_hint"));
+        if (idClient == null) {
+            return "post_logout_redirect_uri needs a client to be checked against - send"
+                    + " client_id or an id_token_hint this provider issued.";
+        }
+        if (!clients.flagKnown(idClient))
+            return "No client is registered under that client_id.";
+        if (!clients.flagRedirect(idClient, strPost))
+            return "That post_logout_redirect_uri is not registered for that client.";
+        return null;
     }
 
 
@@ -309,7 +365,7 @@ public class OidcController {
             Instant instAuth, String strCookie) {
         String strCode = flow.strIssueCode(strUser, idClient, strRedirect,
                 mapParam.get("scope"), mapParam.get("audience"), strChallenge,
-                mapParam.get("nonce"), instAuth);
+                mapParam.get("nonce"), instAuth, OidcClaims.mapRequested(mapParam.get("claims")));
         Map<String, String> mapQ = new LinkedHashMap<>();
         mapQ.put("code", strCode);
         if (strState != null)
@@ -359,7 +415,7 @@ public class OidcController {
         sb.append("<input id=\"password\" name=\"password\" type=\"password\""
                 + " autocomplete=\"current-password\">\n");
         sb.append("<input type=\"submit\" value=\"Sign in\">\n</form>\n");
-        sb.append("<p class=\"note\">Raposza OIDC - a test identity provider. Not for production.</p>\n");
+        sb.append("<p class=\"note\">For test only - not production</p>\n");
         sb.append("</body></html>\n");
         return ResponseEntity.ok().contentType(TYPE_HTML)
                 .header(HttpHeaders.CACHE_CONTROL, STR_NO_STORE).body(sb.toString());
@@ -377,11 +433,16 @@ public class OidcController {
     private static String strHead(String strTitle) {
         return "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">"
                 + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
-                + "<title>" + esc(strTitle) + " - Raposza OIDC</title>\n<style>"
-                + "body{font-family:system-ui,sans-serif;max-width:22rem;margin:4rem auto;padding:0 1rem}"
+                + "<title>" + esc(strTitle) + " - Raposza OIDC</title>\n"
+                // Inter from the design package on this server's own classpath -
+                // D-848. Relative: the page sits one level down, at /oauth2/...
+                + "<link rel=\"stylesheet\" href=\"../raposza/fonts.css\">\n"
+                + "<link rel=\"stylesheet\" href=\"../raposza/tokens.css\">\n<style>"
+                + "body{font-family:\"Inter\",system-ui,sans-serif;max-width:22rem;margin:4rem auto;padding:0 1rem}"
                 + "label,input{display:block;width:100%;box-sizing:border-box;margin:.35rem 0}"
                 + "input{padding:.45rem}input[type=submit]{margin-top:1rem;cursor:pointer}"
-                + ".err{color:#b00020}.who,.note{color:#555}.note{font-size:.8rem;margin-top:2rem}"
+                + ".err{color:var(--rz-bad)}.who{color:#555}"
+                + ".note{color:var(--rz-bad);font-weight:700;font-size:.9rem;margin-top:2rem}"
                 + "</style></head><body>\n";
     }
 

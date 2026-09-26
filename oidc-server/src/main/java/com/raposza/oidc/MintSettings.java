@@ -42,7 +42,7 @@ public final class MintSettings {
 
     /**
      * @param strDirKeys where the JWKS lives, blank for the default
-     * @param strIssuer a fixed `iss`, blank to derive it per request
+     * @param strIssuer the `iss` - REQUIRED; blank refuses to start
      * @param nTtlSeconds token lifetime when a request does not say
      * @param strAlg the algorithm when a request does not say
      * @param strSubject the `sub` when a request does not say
@@ -50,9 +50,9 @@ public final class MintSettings {
      * @param strAdminPasswordIn the admin password; BLANK LEAVES THE WRITE
      *        PATHS OPEN - {@link AdminGuard} says why that is the default
      * @param flagStandaloneIn true for a service on a network rather than one a
-     *        window starts; it REFUSES TO START without a pinned issuer and an
-     *        admin password
-     * @throws IllegalStateException when standalone is set and either is missing
+     *        window starts; it REFUSES TO START without an admin password
+     * @throws IllegalStateException when the issuer is missing, or standalone
+     *         is set and the password is
      */
     public MintSettings(@Value("${raposza.jwtmint.dir-keys:}") String strDirKeys,
             @Value("${raposza.jwtmint.issuer:}") String strIssuer,
@@ -75,27 +75,29 @@ public final class MintSettings {
         this.strAdminPassword = strAdminPasswordIn == null ? "" : strAdminPasswordIn;
         this.flagStandalone = flagStandaloneIn;
 
-        // STANDALONE REFUSES RATHER THAN WARNS, and both reasons are failures
-        // that otherwise appear far from their cause.
-        //
-        // An unpinned issuer behind a proxy is the expensive one: the service
-        // answers, the discovery document is served, tokens are minted, and
-        // EVERY consumer rejects every one of them, because RFC 8414 section
-        // 3.3 compares the issuer in the document and the `iss` of a token
-        // literally and the service saw `http://host:32002` where the consumer
-        // saw `https://id.example.com`. Nothing in that failure points here.
-        //
-        // The open write paths are the other: a service on a network with no
-        // credential in front of its key management.
+        // NO ISSUER, NO START - the operator's decision of 2026-09-23. Until
+        // 0.4.0 a blank issuer was GUESSED from the machine's own addresses,
+        // and the guess was wrong in the one way that cannot be seen: the
+        // service answers, the discovery document is served, tokens are
+        // minted, and EVERY consumer rejects every one of them, because RFC
+        // 8414 section 3.3 compares the issuer in the document and the `iss`
+        // of a token literally. On a workstation with a container network the
+        // guess advertised `http://10.244.0.0:32002`, the pod network's own
+        // address. Nothing in that failure points here, so the service refuses
+        // instead of guessing.
+        if (strIssuerFixed == null) {
+            throw new IllegalStateException("raposza.jwtmint.issuer is not set. It is"
+                    + " the address consumers reach this service on, and it is written"
+                    + " into every token and the discovery document, so it is not"
+                    + " guessed. Set it, for example --raposza.jwtmint.issuer="
+                    + "http://127.0.0.1:32002 on this machine, or"
+                    + " --raposza.jwtmint.issuer=https://id.example.com behind a proxy");
+        }
+
+        // STANDALONE REFUSES RATHER THAN WARNS on the open write paths: a
+        // service on a network with no credential in front of its key
+        // management.
         if (flagStandalone) {
-            if (strIssuerFixed == null) {
-                throw new IllegalStateException("raposza.jwtmint.standalone is set"
-                        + " and raposza.jwtmint.issuer is not. A standalone service"
-                        + " sits behind a proxy, and an issuer resolved from the"
-                        + " local address is not the one consumers reached - every"
-                        + " token would be rejected. Set it to the external origin,"
-                        + " for example https://id.example.com");
-            }
             if (!flagAdminSet()) {
                 throw new IllegalStateException("raposza.jwtmint.standalone is set"
                         + " and raposza.jwtmint.admin.password is not. That would"

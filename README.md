@@ -6,6 +6,8 @@ A small OpenID Provider for development and test systems. It holds a JWKS,
 serves an OpenID Connect and OAuth 2.0 surface against it, signs people in
 from a user list, and mints arbitrary tokens on request.
 
+**Passes the OpenID Foundation OP Basic conformance plan - 0 failures, 0 warnings.**
+
 **IT IS NOT A PRODUCTION IDENTITY PROVIDER AND IS NOT A REPLACEMENT FOR ONE.**
 It publishes its own private keys on request, mints a token for any subject
 with any claims, and stores its users' passwords in clear. It speaks the same
@@ -22,7 +24,7 @@ what it promises.
 <dependency>
     <groupId>com.raposza.oidc</groupId>
     <artifactId>raposza-oidc-core</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 ```
 
@@ -31,8 +33,12 @@ web. `raposza-oidc-server` is the service; take it as a dependency to embed it,
 or take its `app` classifier, which is a runnable Spring Boot jar:
 
 ```
-java -jar raposza-oidc-server-0.3.0-app.jar
+java -jar raposza-oidc-server-0.4.0-app.jar --raposza.jwtmint.issuer=http://127.0.0.1:32002
 ```
+
+The issuer is the address consumers reach the service on. From 0.4.0 it is
+REQUIRED and the service refuses to start without it; 0.3.0 guessed it from
+the machine's own addresses when it was not given.
 
 ## What it serves
 
@@ -49,13 +55,15 @@ GET  /oauth2/authorize                     sign in - the login page, then a code
 POST /oauth2/token                         authorization_code, refresh_token,
                                            client_credentials; form or JSON.
                                            Also answers at /oauth/token, /token
-GET  /oauth2/userinfo                      the signed-in user
-GET  /oauth2/logout                        back to post_logout_redirect_uri
+GET  /oauth2/userinfo                      the signed-in user, and the claims the scope releases
+GET  /oauth2/logout                        back to post_logout_redirect_uri, when it is
+                                           registered for the client
 POST /mint                                 a token from an explicit claims request
 GET  /mint                                 the same through query parameters
 GET  /mint.txt                             the same, the bare token as text
 GET  /admin/status                         where the keys are and when they loaded
 POST /admin/reload                         re-read the JWKS from disk
+GET  /admin/reload                         the same
 GET  /ui/                                  the web UI
      /api/ui/*                             what the UI calls; a script may too
 GET  /swagger-ui.html                      every endpoint, with runnable examples
@@ -75,7 +83,7 @@ script cannot.
 | --- | --- |
 | Overview | the issuer, where the keys, users and clients are, and every url a consumer is given |
 | Keys | every key with its algorithm, type and thumbprint; rotate, add, delete, reload |
-| Users | who can sign in; add, change a password, delete |
+| Users | who can sign in, and their standard claims; add, change, delete |
 | Clients | registered `client_id`s and their redirect URIs; register, replace, remove. NO SECRET is ever returned |
 | Mint | a form over `/mint`, with the token decoded beside it |
 | Inspect | paste a token: header, claims, expiry, whether THIS key set signed it - and, if you paste a JWKS, whether THAT one does |
@@ -84,6 +92,11 @@ Key, user and client management need the admin credential -
 `raposza.jwtmint.admin.user` and `.admin.password`. With no password set they
 are open, and the Overview page says so in as many words. A standalone
 service refuses to start in that state.
+
+**A signed-in browser session does not authorise a write on its own.** The
+UI sends `X-Raposza-UI` with every call, and a write - any method but GET and
+HEAD, and `/admin/reload` whatever its method - that arrives on the session
+without it is refused with 403. A script uses HTTP Basic and needs no header.
 
 **Inspect is the page that earns its place.** Every authentication failure
 this project has had was an issuer that did not match, an audience that did
@@ -127,8 +140,8 @@ The setting seeds `clients.json` once; after that the file wins.
 TLS is terminated at the proxy; this process serves plain HTTP and holds no
 keystore. **Pin the issuer to the external origin.** RFC 8414 section 3.3
 compares the issuer in the discovery document and the `iss` of a token
-literally, so a service left to resolve its own address has every token
-rejected by every validator the moment a proxy is in front of it.
+literally, so an issuer that is not the origin the consumers reach has every
+token rejected by every validator the moment a proxy is in front of it.
 
 ```
 ./run-oidc.sh --raposza.jwtmint.issuer=https://id.example.com
@@ -179,12 +192,32 @@ server {
 path. `/mint` is still open to everyone who can reach the proxy, by design -
 put the whole thing on a network you control.
 
+## Users and their claims
+
+A user is a name, a password and, since 0.4.0, the standard claims of OpenID
+Connect Core 1.0 section 5.1 - set on the Users page or in `users.json`:
+
+```
+{ "alice": "a1",
+  "bob": { "password": "b2",
+           "claims": { "name": "Bob Doe", "email": "bob@example.com", "email_verified": true } } }
+```
+
+A scope releases its claims at UserInfo - `profile`, `email`, `address`,
+`phone`, Core 5.4 - and the `claims` request parameter, Core 5.5, releases a
+claim by name at UserInfo or in the ID token, wherever it asked. A claim the
+user does not carry is never made up. A user with no claims is the
+flat form, so a `users.json` from 0.3.0 is read unchanged. To run the OpenID
+Foundation conformance suite's scope modules, give the user it signs in as a
+claim from each of the four scopes, and for `profile` every one of its
+fourteen claims: the suite checks that UserInfo carries them all.
+
 ## Settings
 
 | key | meaning |
 | --- | --- |
 | `raposza.jwtmint.dir-keys` | the JWKS directory; blank is `~/.raposza/jwtmint/keys` |
-| `raposza.jwtmint.issuer` | the pinned issuer; required behind a proxy |
+| `raposza.jwtmint.issuer` | the issuer; REQUIRED from 0.4.0, and behind a proxy the external origin |
 | `raposza.jwtmint.ttl-seconds` | default token lifetime, 86400 |
 | `raposza.jwtmint.default-alg` | default signing algorithm, RS256 |
 | `raposza.jwtmint.default-subject` | default `sub`, `raposza` |
@@ -192,7 +225,7 @@ put the whole thing on a network you control.
 | `raposza.jwtmint.clients` | `id`, `secret`, `uris` separated by a vertical bar; entries comma separated; seeds `clients.json` |
 | `raposza.jwtmint.admin.user` | the admin name, `admin` |
 | `raposza.jwtmint.admin.password` | the admin password; **BLANK LEAVES THE WRITE ENDPOINTS AND THE PRIVATE JWKS OPEN** |
-| `raposza.jwtmint.standalone` | true for a service on a network; refuses to start without a pinned issuer and a password |
+| `raposza.jwtmint.standalone` | true for a service on a network; refuses to start without a password |
 | `server.port` | 32002 |
 | `server.address` | unset, so it listens on EVERY interface |
 

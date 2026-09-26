@@ -44,7 +44,8 @@ class MintServiceTest {
 
     @BeforeAll
     static void buildTheMint() {
-        MintSettings settings = new MintSettings(dirKeys.toString(), "", 3600L,
+        MintSettings settings = new MintSettings(dirKeys.toString(),
+                "http://127.0.0.1:32002", 3600L,
                 "RS256", "raposza", "admin", "", false);
         minter = new MintService(new MintKeyStore(settings), settings);
     }

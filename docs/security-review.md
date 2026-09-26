@@ -8,14 +8,40 @@ established by a third party, and no third party has signed anything about it.
 When an external audit exists it will be published beside this document,
 unedited.
 
-**Reviewed 2026-09-19 for 0.3.0.** `SUITE.md` B8, against the tree as it stands
-after the server package became `com.raposza.oidc`. Read in the same pass:
-`SECURITY.md`, this document, and `README.md`'s "Behind a reverse proxy" and
-"Settings" sections. **FOUR STATEMENTS IN THIS DOCUMENT WERE FALSIFIED BY THE
-TREE** - the key file names and count in section 4, the atomic write in section
-4, the password comparison in section 5, and the omission of `/` from section
-3's table. All four are corrected below and L-10 is new. Everything else was
+**Reviewed 2026-09-26 for 0.4.0.** `SUITE.md` B8, against the tree as it
+stands. Read in the same pass: `SECURITY.md`, this document, and `README.md`'s
+endpoint list, "Behind a reverse proxy", "Users and their claims" and
+"Settings". **SIX STATEMENTS WERE STALE AGAINST THE TREE and are corrected
+below:** section 3's table had no session cookie at the authorization endpoint,
+no `/raposza/` design files and nothing on logout's redirect; section 3's
+standalone sentence predated the required issuer; section 5 had no sessions;
+section 9 had no design package. The session shipped in 0.3.0 AFTER that
+release's review was written, so 0.3.0's documents never described it. **ONE
+FINDING WAS NEW AND IS FIXED IN 0.4.0:** `/oauth2/logout` followed any
+absolute http(s) `post_logout_redirect_uri` - an open redirect on the issuer's
+own address, and a relying party built here could rely on a logout URI a real
+provider refuses. Section 3 has the check that replaced it. Users' standard
+claims and unsigned request objects are new in 0.4.0; the claims are in
+sections 3 to 6, the request object in section 3. Everything else was
 confirmed against the source, not carried forward.
+
+**A SECOND PASS THE SAME DAY, 2026-09-26, found TWO MORE, both measured on the
+built 0.4.0 jar and both fixed in 0.4.0.** `AdminGuard` decided on the raw
+request URI while Spring dispatched on the canonical path, so
+`/oauth2/jwks-private;x=1`, `/oauth2/%6Awks-private` and `/%61dmin/status`
+were served with no credential and the admin password set - the private key
+set whole. And section 3 said `allowCredentials` false kept a page on another
+origin off an administrator's session; it does not, because a body-less POST
+is sent cross-origin without a preflight and carries the cookie, and one
+rotated a key. Section 3 has both fixes. Two statements were also stale:
+`GET /admin/reload` was missing from `README.md`'s endpoint list, and section 5
+said no path but the admin UI returns a user's claims, beside the sentence
+saying UserInfo and the ID token do.
+
+**Reviewed 2026-09-19 for 0.3.0**, the first review: four statements were
+falsified by the tree then - the key file names and count in section 4, the
+atomic write in section 4, the password comparison in section 5, and the
+omission of `/` from section 3's table - and L-10 was new.
 
 It is organised as the questions a reviewer asks, in the order they get asked.
 Read it with `SECURITY.md`, which carries the short statement of the model and
@@ -80,17 +106,19 @@ The surface, and what guards each part:
 | --- | --- |
 | `/.well-known/openid-configuration`, `/.well-known/oauth-authorization-server` | none, by design - RFC 8414 |
 | `/oauth2/jwks`, `/jwks.json` | none, by design - the public key set |
-| `/oauth2/authorize` | the user's own name and password, from `users.json` |
+| `/oauth2/authorize` | the user's own name and password, from `users.json` - or a live sign-in session, the HttpOnly cookie `raposza_oidc_session`, SameSite=Lax, `Secure` when the issuer is https, 12 hours from sign-in |
+| the same, with `request` | an UNSIGNED request object, `alg: none`, is merged into the parameters before any check, Core 6.1; it carries the trust of the query it arrives in and no more. A signed one is refused - this service holds no client's keys - and `request_uri` is refused |
 | `/oauth2/token`, and its aliases `/oauth/token` and `/token` | the client's, once a client is registered - see below |
 | `/oauth2/userinfo` | the bearer token issued by this service |
-| `/oauth2/logout` | none |
+| `/oauth2/logout` | none. It ends the browser's session, and follows `post_logout_redirect_uri` only when that URI is registered for the client - below |
 | `/mint`, `/mint.txt` | **NONE. Any caller gets a token for any subject.** |
 | `/keys`, `/keys.txt` | none - algorithm, kid and key size, no key material |
 | `/oauth2/jwks-private`, `/jwks-private.json` | the admin credential |
 | `/admin/*` | the admin credential |
 | `/api/ui/*` except `/api/ui/login` | the admin credential |
 | `/ui/`, `/swagger-ui.html`, `/v3/api-docs` | none - static pages and a schema |
-| `/` | none - a plain-text index that names the ABSOLUTE PATH of the key directory and the resolved issuer |
+| `/raposza/**` | none - the design package's fonts, tokens and logo, static files served from its jar |
+| `/` | none - a plain-text index that names the ABSOLUTE PATH of the key directory and the issuer |
 
 **The admin credential is held in clear in configuration** -
 `raposza.jwtmint.admin.user` and `.admin.password` - **and compared with
@@ -99,10 +127,21 @@ found one byte at a time. `AdminGuard` is a `OncePerRequestFilter` - there is no
 Spring Security in the tree - and it accepts EITHER an HTTP Basic header or a
 servlet session marked signed-in by `/api/ui/login`, which is how the web UI
 stays signed in. WITH NO PASSWORD SET THE GUARDED PATHS ARE OPEN, and the
-service logs a WARN naming them. A service started with
-`raposza.jwtmint.standalone=true` refuses to start without both a pinned issuer
-and a password. `/api/ui/login` is itself unguarded and unthrottled, which is
+service logs a WARN naming them. Every start requires
+`raposza.jwtmint.issuer` and refuses without it; a service started with
+`raposza.jwtmint.standalone=true` refuses to start without a password as well. `/api/ui/login` is itself unguarded and unthrottled, which is
 what L-3 means by no lockout.
+
+**The guard decides on the path Spring dispatches on**, the servlet path the
+container has already decoded and stripped of path parameters, and on the raw
+URI as well: a request is guarded when either spelling is. Until the second
+review of 2026-09-26 it read the raw URI alone, and a `;x=1` or a
+percent-encoded letter reached a guarded handler with no credential.
+
+**A session alone does not authorise a write.** A request authenticated by
+the UI session that writes - any method but GET and HEAD, and `/admin/reload`
+whatever its method - must also carry the header `X-Raposza-UI`, which the UI
+sends on every call; without it the answer is 403. HTTP Basic needs no header.
 
 **The client registry is EMPTY by default and then nothing is checked** - any
 `client_id`, any `redirect_uri`, any or no `client_secret`. Registering the
@@ -113,6 +152,15 @@ the URI in such a request is precisely the one that cannot be trusted to
 receive it - OpenID Connect Core 1.0 section 3.1.2.6. `redirect_uri` is
 compared as a whole string, section 3.1.2.1.
 
+**The same registry governs logout, since 0.4.0.** A `post_logout_redirect_uri`
+is followed only when it is registered for the client named by `client_id`, or
+by the `azp` or single `aud` of the `id_token_hint`. Otherwise the request is
+refused with an error page and the session is left as it was - the URI is the
+one thing in the request that cannot be trusted. The URIs checked are the
+client's redirect URIs; there is no second list, which is also Keycloak's
+default. Before 0.4.0 any absolute http(s) URI was followed. With an empty
+registry it still is, like every other check here.
+
 **CORS is open on EVERY path.** `CorsConfig` maps `/**` with `allowedOrigins("*")`,
 `allowedHeaders("*")` and the methods GET, POST and OPTIONS. That is what a
 browser-side relying party on another port needs, and it is also a real
@@ -121,11 +169,16 @@ and read the answer. DELETE is not in the list, so the UI's own delete
 endpoints are not reachable cross-origin - which is an accident of the method
 list rather than a decision.
 
-**`allowCredentials` is not set, so it is false**, and that is what keeps a page
-on another origin off an administrator's UI session: the browser does not attach
-the session cookie to a cross-origin call this configuration can answer. A
-cross-origin caller that wants a guarded path has to present HTTP Basic itself,
-which a page can only do when it already holds the credential.
+**`allowCredentials` is not set, so it is false**, and that stops a page on
+another origin READING what a guarded path answers on an administrator's
+session. It does NOT stop the request: a body-less or form POST is sent
+cross-origin without a preflight and the browser attaches the session cookie,
+which is how a page on any origin rotated a key before the second review of
+2026-09-26. What stops that is the `X-Raposza-UI` rule above: a custom header
+forces a preflight, and a preflight for a credentialed request fails here
+because the answer carries no `Access-Control-Allow-Credentials`. A
+cross-origin caller that wants a guarded path has to present HTTP Basic
+itself, which a page can only do when it already holds the credential.
 
 **The CORS mapping is unconditional and does not consult the client registry.**
 A registered client's `redirect_uri` list narrows the browser flow; it narrows
@@ -140,7 +193,7 @@ FOUR files, all in the key directory - `raposza.jwtmint.dir-keys`, by default
 | --- | --- |
 | `jwks-private.json` | the full key set, **private members included** |
 | `jwks-public.json` | the same set with the private members stripped |
-| `users.json` | names and passwords, **in clear** |
+| `users.json` | names, passwords and each user's standard claims, **in clear** |
 | `clients.json` | client ids, secrets in clear, and redirect URIs |
 
 **THE TWO HALVES ARE NOT WRITTEN THE SAME WAY, and an earlier draft of this
@@ -192,23 +245,46 @@ earlier draft of this section said. Seeded once from `raposza.jwtmint.users`
 when the file does not exist; after that the file always wins. No hashing, no
 salt, no lockout, no expiry.
 
+**User claims.** Since 0.4.0 a user may carry the standard claims of OpenID
+Connect Core 1.0 section 5.1 - name, e-mail, address, phone and the rest - in
+`users.json` beside the password, in clear. Only those names are accepted.
+A scope releases its claims at UserInfo only, Core 5.4; the `claims` request
+parameter, Core 5.5, releases a claim by name at UserInfo or in the ID token,
+wherever it was asked for. A claim the user does not carry is never made up.
+The admin UI returns every user's full set; UserInfo and the ID token release
+only what a scope or the `claims` parameter asked for.
+
+**Authentication strength.** Every ID token carries `acr` `"0"` since 0.4.0,
+and `acr_values_supported` advertises that value alone: OpenID Connect Core
+section 2 defines it as an authentication that did not meet ISO/IEC 29115
+level 1 and SHOULD NOT authorize access to anything of monetary value. A name
+and a clear-text password on a test system is exactly that, so the claim is a
+statement of weakness, not of strength.
+
 **Client secrets.** Plain text in `clients.json`, compared the same
 constant-time way. Never returned by any endpoint, including the UI's own.
 
-**Issued tokens.** Not stored. There is no token database, so there is no
-revocation: a token is valid until its `exp`, and the default lifetime is 24
-hours.
+**Issued tokens.** Not stored as a database. There is no general revocation:
+a token is valid until its `exp`, and the default lifetime is 24 hours. ONE
+CASE IS REVOKED SINCE 0.4.0, the one RFC 6749 section 4.1.2 names: a code
+exchanged a second time makes UserInfo refuse every access token of that grant
+and forgets its refresh token. The memory of which access token belongs to
+which grant is held for the token's lifetime, in `OidcFlow`, and lost on
+restart. A participant that checks only the signature still accepts such a
+token until it expires.
 
-**Authorization codes and refresh tokens** live in memory, in `OidcFlow`, and
-are lost on restart. A code is single-use.
+**Authorization codes, refresh tokens and sign-in sessions** live in memory,
+in `OidcFlow` and `OidcSessions`, and are lost on restart. A code is
+single-use; a session lasts 12 hours from sign-in and is ended by logout.
 
 ## 6 - What is logged, and whether a secret can reach a log line
 
 INFO to the console, in the pattern `application.yml` sets. What is logged:
-the resolved issuer and where it came from; the key ids present after a load,
-a rotate, an add or a remove; user names after a load or a change; client ids
-after a load or a change; and the two WARN lines that say the admin credential
-and the client registry are unset.
+the issuer and where it came from; the key ids present after a load,
+a rotate, an add or a remove; user names after a load or a change, with the
+NAMES of the claims a changed user carries but never their values; a session
+opened, with its user name; client ids after a load or a change; and the two
+WARN lines that say the admin credential and the client registry are unset.
 
 **No password, no client secret, no private key and no issued token is
 logged**, and none of the objects that hold them has a `toString` that would
@@ -247,6 +323,7 @@ Central:
 | Nimbus JOSE+JWT | 9.40 | every JOSE operation in `oidc-core` |
 | springdoc-openapi (webmvc-ui) | 2.8.17 | the OpenAPI document and Swagger UI |
 | Jackson | via the Boot BOM | JSON, including the three stores |
+| Raposza Design | 0.4.0 | the fonts, colour tokens and logo of the web UI and the sign-in page, served from its jar; it carries Inter (SIL Open Font License 1.1) and Hack (MIT with the Bitstream Vera License) |
 
 `oidc-core` depends on Nimbus and the JDK and nothing else, deliberately: it is
 also a dependency of `raposza-auth` in the Raposza tree, and a module that
@@ -283,10 +360,12 @@ bugs; every one is a deliberate consequence of what this is for.
 * **L-2 The private key set is served over HTTP** to whoever holds the admin
   credential - and to everyone when no password is set. There is no
   configuration in which this service cannot hand out its signing keys.
-* **L-3 User passwords and client secrets are stored and compared in clear.**
-  No hashing, no policy, no lockout, no MFA, no throttling of attempts.
-* **L-4 There is no revocation and no audit trail.** A token cannot be
-  withdrawn, and nothing records what was issued or to whom.
+* **L-3 User passwords, client secrets and user claims are stored in clear**,
+  and passwords and secrets are compared in clear. No hashing, no policy, no
+  lockout, no MFA, no throttling of attempts.
+* **L-4 There is no general revocation and no audit trail.** A token cannot be
+  withdrawn, and nothing records what was issued or to whom. The one
+  exception, a reused code, reaches UserInfo only - section 5.
 * **L-5 The admin credential is Basic over plain HTTP.** Without a TLS
   terminator in front, it is on the wire in base64 on every guarded request.
 * **L-6 An empty client registry accepts any client.** That is the compatible
@@ -301,12 +380,12 @@ bugs; every one is a deliberate consequence of what this is for.
   now refused by name - 415 and 400 - and the arbitrary-token path a JSON body
   used to reach is `/mint`, where it always was. Kept as L-8 rather than
   renumbered, because the ids are cited elsewhere.
-* **L-9 The bind address is every interface by default**, and the issuer is
-  resolved from the machine's own addresses when it is not pinned. Section 3
-  and `README.md` say what to set. The resolution sorts the site-local IPv4
-  addresses AS STRINGS and excludes neither a network nor a broadcast address,
-  and on a workstation running a container network it has been observed to
-  advertise one - pin the issuer.
+* **L-9 The bind address is every interface by default.** Section 3 and
+  `README.md` say what to set. The issuer is NOT resolved from the machine's
+  addresses since 0.4.0: `raposza.jwtmint.issuer` is required and the service
+  refuses to start without it. Until then a blank issuer was guessed, and on a
+  workstation running a container network the guess advertised the pod
+  network's own address.
 * **L-10 The key files are rewritten in place, not moved into place**, so a
   concurrent reader can see a partial document and the two halves of the set
   disagree for the length of one write; and on a first generation the private

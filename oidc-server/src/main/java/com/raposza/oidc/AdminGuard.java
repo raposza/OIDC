@@ -51,6 +51,31 @@ import java.util.Base64;
  * A browser signs in at `/api/ui/login` and carries a session; a script sends
  * HTTP Basic on every request. Both check the same pair.
  *
+ * <h2>The path it decides on is the path Spring matches - 0.4.0</h2>
+ *
+ * Until 0.4.0 the decision was taken on the RAW request URI while Spring MVC
+ * dispatched on the canonical one - decoded, path parameters removed. So
+ * `/oauth2/jwks-private;x=1`, `/oauth2/%6Awks-private` and `/%61dmin/status`
+ * reached their handlers with no credential while the plain spellings were
+ * refused - measured 2026-09-26 with the admin password set, the private set
+ * served whole. The decision is now taken on the servlet path, which the
+ * container has already canonicalised for dispatch, and the raw URI is checked
+ * as well: a request is guarded when EITHER spelling is.
+ *
+ * <h2>A session alone does not authorise a write that did not come from the UI - 0.4.0</h2>
+ *
+ * CORS here answers every origin with `*` and no credentials, which stops a
+ * page on another origin READING a response - and does nothing about a request
+ * the browser sends without asking first. A body-less `text/plain` POST is such
+ * a request, the browser attaches the session cookie to it, and until 0.4.0 it
+ * rotated a key: measured 2026-09-26. So a request authenticated by the SESSION
+ * that writes - any method but GET and HEAD, and `/admin/reload` whatever its
+ * method - must also carry {@link #STR_HEADER_UI}, which the UI sends on every
+ * call. A custom header makes the browser ask first, and a cross-origin
+ * preflight for a credentialed request fails here because the answer carries no
+ * `Access-Control-Allow-Credentials`. HTTP Basic is not affected: a page cannot
+ * send it without already holding the password.
+ *
  * Author Claude/bentzn
  */
 @Component
@@ -63,6 +88,12 @@ public final class AdminGuard extends OncePerRequestFilter {
 
     /** The one path under `/api/ui/` that cannot require a credential. */
     public static final String STR_PATH_LOGIN = "/api/ui/login";
+
+    /** The header a session-authenticated write must carry; the UI sends it on every call. */
+    public static final String STR_HEADER_UI = "X-Raposza-UI";
+
+    /** The one GET that changes state: it re-reads the key set from disk. */
+    public static final String STR_PATH_RELOAD = "/admin/reload";
 
     private final MintSettings settings;
 
@@ -96,7 +127,7 @@ public final class AdminGuard extends OncePerRequestFilter {
 
 
     /**
-     * The whole decision, with no servlet in it.
+     * The whole decision for a read, with no servlet in it.
      *
      * @param strPath the request path
      * @param strAuth the Authorization header, or null
@@ -104,13 +135,57 @@ public final class AdminGuard extends OncePerRequestFilter {
      * @return true when the request may proceed
      */
     public boolean flagAllowed(String strPath, String strAuth, boolean flagSession) {
+        return flagAllowed(strPath, "GET", strAuth, flagSession, false);
+    }
+
+
+    /**
+     * The whole decision, with no servlet in it.
+     *
+     * @param strPath the canonical request path
+     * @param strMethod the HTTP method
+     * @param strAuth the Authorization header, or null
+     * @param flagSession whether the session carries a completed sign-in
+     * @param flagUiHeader whether the request carries {@link #STR_HEADER_UI}
+     * @return true when the request may proceed
+     */
+    public boolean flagAllowed(String strPath, String strMethod, String strAuth,
+            boolean flagSession, boolean flagUiHeader) {
         if (!flagGuarded(strPath))
             return true;
         if (!settings.flagAdminSet())
             return true;
-        if (flagSession)
+        if (flagBasicValid(strAuth))
             return true;
-        return flagBasicValid(strAuth);
+        if (!flagSession)
+            return false;
+        return flagUiHeader || !flagWrite(strPath, strMethod);
+    }
+
+
+    /**
+     * @param strPath the canonical request path
+     * @param strMethod the HTTP method
+     * @return true when the request changes state
+     */
+    public static boolean flagWrite(String strPath, String strMethod) {
+        if (STR_PATH_RELOAD.equals(strPath))
+            return true;
+        return !("GET".equalsIgnoreCase(strMethod) || "HEAD".equalsIgnoreCase(strMethod));
+    }
+
+
+    /**
+     * The path the container dispatches on: decoded, normalised, path
+     * parameters removed.
+     *
+     * @param req the request
+     * @return the servlet path and the path info, joined
+     */
+    public static String strPathCanonical(HttpServletRequest req) {
+        String strServlet = req.getServletPath();
+        String strInfo = req.getPathInfo();
+        return (strServlet == null ? "" : strServlet) + (strInfo == null ? "" : strInfo);
     }
 
 
@@ -136,8 +211,25 @@ public final class AdminGuard extends OncePerRequestFilter {
         boolean flagSession = session != null
                 && Boolean.TRUE.equals(session.getAttribute(STR_ATTR_SIGNED_IN));
 
-        if (flagAllowed(req.getRequestURI(), req.getHeader("Authorization"), flagSession)) {
+        // EITHER SPELLING GUARDS. The canonical path is what Spring dispatches
+        // on; the raw one is kept so that nothing guarded before is let through
+        // by a container that canonicalises differently.
+        String strCanonical = strPathCanonical(req);
+        String strPath = flagGuarded(strCanonical) ? strCanonical : req.getRequestURI();
+
+        if (flagAllowed(strPath, req.getMethod(), req.getHeader("Authorization"), flagSession,
+                req.getHeader(STR_HEADER_UI) != null)) {
             chain.doFilter(req, res);
+            return;
+        }
+
+        res.setContentType("application/json");
+        if (flagSession) {
+            // SIGNED IN, BUT NOT FROM THE UI. 403 rather than 401, so the UI does
+            // not answer it with its sign-in gate.
+            res.setStatus(HttpServletResponse.SC_FORBIDDEN);
+            res.getWriter().write("{\"error\":\"forbidden\",\"error_description\":\"a signed-in"
+                    + " write must carry the " + STR_HEADER_UI + " header, or use HTTP Basic\"}");
             return;
         }
 
@@ -145,7 +237,6 @@ public final class AdminGuard extends OncePerRequestFilter {
         // API path directly is told how to answer.
         res.setHeader("WWW-Authenticate", "Basic realm=\"Raposza OIDC\"");
         res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-        res.setContentType("application/json");
         res.getWriter().write("{\"error\":\"unauthorized\","
                 + "\"error_description\":\"this path needs the admin credential\"}");
     }

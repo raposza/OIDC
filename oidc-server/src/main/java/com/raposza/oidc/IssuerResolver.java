@@ -5,18 +5,9 @@ package com.raposza.oidc;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.List;
 
 /**
  * THE issuer - one value, resolved once, used by everything.
@@ -39,20 +30,12 @@ import java.util.List;
  *
  * <h2>How it is resolved</h2>
  *
- * `raposza.jwtmint.issuer` wins outright when it is set, and setting it is
- * the answer whenever this machine's address is not the address the verifier
- * will use - behind a port forward, behind a proxy, or on a host with several
- * candidate interfaces.
- *
- * When it is blank the value is `http://<address>:<port>`, where the address is
- * the lowest site-local IPv4 address this machine carries, and loopback only
- * when there is no other. Loopback is not the default because a virtual machine
- * cannot reach it, and a discovery document advertising an issuer the client
- * cannot fetch is the failure this class exists to remove.
- *
- * THE ADDRESS IS SORTED, not taken in interface order. Interface enumeration
- * order is not stable across boots, and an issuer that changes when the machine
- * restarts invalidates every token that was minted before it.
+ * IT IS NOT RESOLVED. `raposza.jwtmint.issuer` is required and is the value,
+ * with any trailing slash removed - {@link MintSettings} refuses to start
+ * without it. Until 0.4.0 a blank setting was guessed from this machine's
+ * addresses, and a guess is exactly the thing that cannot be compared
+ * literally: the address a verifier reaches the service on is known to
+ * whoever deploys it and to nothing on this machine.
  *
  * <h2>The paths</h2>
  *
@@ -95,20 +78,15 @@ public final class IssuerResolver {
 
     private final String strIssuer;
 
-    private final boolean flagPinned;
-
 
     /**
-     * @param settings the configuration, for a pinned issuer
-     * @param nPort the port this service listens on
+     * @param settings the configuration, which carries the issuer
      */
-    public IssuerResolver(MintSettings settings, @Value("${server.port:32002}") int nPort) {
-        this.flagPinned = settings.strIssuerFixed() != null;
-        this.strIssuer = flagPinned
-                ? strNoTrailingSlash(settings.strIssuerFixed())
-                : "http://" + strHostRoutable() + ":" + nPort;
-        log.info("issuer {} {}", strIssuer,
-                flagPinned ? "(raposza.jwtmint.issuer)" : "(resolved at startup)");
+    public IssuerResolver(MintSettings settings) {
+        if (settings.strIssuerFixed() == null)
+            throw new IllegalStateException("raposza.jwtmint.issuer is not set");
+        this.strIssuer = strNoTrailingSlash(settings.strIssuerFixed());
+        log.info("issuer {} (raposza.jwtmint.issuer)", strIssuer);
     }
 
 
@@ -122,10 +100,11 @@ public final class IssuerResolver {
 
 
     /**
-     * @return true when `raposza.jwtmint.issuer` set it
+     * @return true, always since 0.4.0 - kept because the overview and the
+     *         status page publish it
      */
     public boolean flagPinned() {
-        return flagPinned;
+        return true;
     }
 
 
@@ -163,47 +142,6 @@ public final class IssuerResolver {
             strOut = strOut.substring(0, strOut.length() - 1);
         }
         return strOut;
-    }
-
-
-    /**
-     * @return the lowest site-local IPv4 address of this machine, or any other
-     *         non-loopback IPv4 address when there is none, or `127.0.0.1`
-     */
-    private static String strHostRoutable() {
-        List<String> lstSiteLocal = new ArrayList<>();
-        List<String> lstOther = new ArrayList<>();
-        try {
-            Enumeration<NetworkInterface> enumIface = NetworkInterface.getNetworkInterfaces();
-            while (enumIface.hasMoreElements()) {
-                NetworkInterface iface = enumIface.nextElement();
-                if (!iface.isUp() || iface.isLoopback())
-                    continue;
-
-                Enumeration<InetAddress> enumAddr = iface.getInetAddresses();
-                while (enumAddr.hasMoreElements()) {
-                    InetAddress addr = enumAddr.nextElement();
-                    if (!(addr instanceof Inet4Address))
-                        continue;
-                    if (addr.isLoopbackAddress() || addr.isLinkLocalAddress())
-                        continue;
-                    if (addr.isSiteLocalAddress())
-                        lstSiteLocal.add(addr.getHostAddress());
-                    else
-                        lstOther.add(addr.getHostAddress());
-                }
-            }
-        }
-        catch (SocketException ex) {
-            log.warn("cannot enumerate interfaces, falling back to loopback", ex);
-        }
-
-        List<String> lstPick = lstSiteLocal.isEmpty() ? lstOther : lstSiteLocal;
-        if (lstPick.isEmpty())
-            return "127.0.0.1";
-
-        Collections.sort(lstPick);
-        return lstPick.get(0);
     }
 
 }

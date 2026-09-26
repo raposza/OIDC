@@ -13,6 +13,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 /**
  * The user store as a file: what seeds it, what wins, and what survives a
@@ -116,6 +117,48 @@ class OidcUsersStoreTest {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> new OidcUsers(settings(dirKeys), "alice"));
         assertTrue(ex.getMessage().contains("alice"));
+    }
+
+
+    @Test
+    void claimsSurviveARestartAndAPasswordChange(@TempDir Path dirKeys) {
+        OidcUsers users = new OidcUsers(settings(dirKeys), "alice:a1");
+        users.flagPut("alice", "", Map.of("name", "Alice Doe", "email", "alice@example.com"));
+        users.flagPut("alice", "a2");
+
+        OidcUsers again = new OidcUsers(settings(dirKeys), "");
+        assertTrue(again.isValid("alice", "a2"));
+        assertEquals(Map.of("name", "Alice Doe", "email", "alice@example.com"), again.mapClaims("alice"));
+
+        again.flagPut("alice", "", Map.of());
+        assertTrue(new OidcUsers(settings(dirKeys), "").mapClaims("alice").isEmpty());
+    }
+
+
+    @Test
+    void aFlatStoreFromBefore040IsReadAndWrittenFlat(@TempDir Path dirKeys) throws Exception {
+        Path fileStore = dirKeys.resolve(OidcUsers.STR_FILE);
+        Files.writeString(fileStore, "{\"alice\":\"a1\"}");
+
+        OidcUsers users = new OidcUsers(settings(dirKeys), "");
+        assertTrue(users.isValid("alice", "a1"));
+        users.flagPut("bob", "b2");
+        String strFile = Files.readString(fileStore);
+        assertTrue(strFile.contains("\"alice\" : \"a1\""), strFile);
+        assertFalse(strFile.contains("claims"), strFile);
+    }
+
+
+    @Test
+    void anUnknownClaimOrANewUserWithoutPasswordIsRefused(@TempDir Path dirKeys) {
+        OidcUsers users = new OidcUsers(settings(dirKeys), "alice:a1");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> users.flagPut("alice", "", Map.of("shoe_size", 44)));
+        assertTrue(ex.getMessage().contains("shoe_size"));
+        assertThrows(IllegalArgumentException.class, () -> users.flagPut("alice", "", Map.of("sub", "x")));
+        assertThrows(IllegalArgumentException.class,
+                () -> users.flagPut("carol", "", Map.of("name", "Carol")));
     }
 
 }

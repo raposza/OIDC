@@ -30,9 +30,11 @@ coordinate on Maven Central is immutable - so a fix arrives as a new version.
 
 ## When this was last reviewed
 
-**Reviewed 2026-09-19 for 0.3.0**, against the tree as it then stood -
-`docs/security-review.md` carries the result and the four statements that
-review corrected.
+**Reviewed 2026-09-26 for 0.4.0**, against the tree as it then stood, and a
+second time the same day - `docs/security-review.md` carries the result, the
+statements each pass corrected and the three findings they fixed: an open
+redirect at logout, guarded paths reachable by a different spelling, and a
+signed-in UI session usable by a page on another site.
 
 ## The short statement of the model
 
@@ -51,22 +53,27 @@ should read before running it:
   reason the service exists - and it is why the service belongs on a machine
   and a network you control.
 * **User passwords and client secrets are stored in clear text**, in
-  `users.json` and `clients.json` beside the key set. The comparison is
-  constant-time and that is the whole of what is done for them: no hashing, no
-  lockout, no password policy, no MFA. They are a test system's users.
-* **There is no rate limiting, no revocation and no audit log.** A token this
-  service issued is valid until it expires; nothing can withdraw it.
-* **It listens on every interface by default** and terminates no TLS. Behind a
-  proxy, pin `raposza.jwtmint.issuer` to the external origin - RFC 8414
-  section 3.3 compares issuers literally, and an unpinned service has every
-  token rejected by every validator.
+  `users.json` and `clients.json` beside the key set, and so are the standard
+  claims a user may carry since 0.4.0 - name, e-mail, address, phone. The
+  comparison is constant-time and that is the whole of what is done for them:
+  no hashing, no lockout, no password policy, no MFA. They are a test system's
+  users.
+* **There is no rate limiting, no general revocation and no audit log.** A
+  token this service issued is valid until it expires. The one exception is a
+  reused authorization code, whose tokens UserInfo then refuses - a relying
+  party's resource server that checks only the signature still accepts them.
+* **It listens on every interface by default** and terminates no TLS. The
+  issuer is required - `raposza.jwtmint.issuer`, and a service started without
+  one refuses - and behind a proxy it is the external origin: RFC 8414 section
+  3.3 compares issuers literally.
 
 **What it does check, because a real provider does.** Once one client is
 registered, an unknown `client_id`, an unregistered `redirect_uri` and a wrong
 or unexpected `client_secret` are all refused, and the first two are refused
-WITHOUT redirecting the error - OpenID Connect Core 1.0 section 3.1.2.6. While
-no client is registered none of the three is checked, and the service says so
-at startup. That is correctness, not hardening: it exists so that a component
+WITHOUT redirecting the error - OpenID Connect Core 1.0 section 3.1.2.6. Since
+0.4.0 a logout's `post_logout_redirect_uri` is followed only when it is
+registered for the client too. While no client is registered none of this is
+checked, and the service says so at startup. That is correctness, not hardening: it exists so that a component
 which works here also works against a real provider.
 
 `docs/security-review.md` is the full posture document: what executes, what is

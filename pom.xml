@@ -32,6 +32,9 @@
   Central: the TXT record that proves `com.raposza` covers everything beneath
   it.
 
+  0.4.0-SNAPSHOT SINCE 2026-09-23 - his number: the issuer is required, so a
+  start that worked on 0.3.0 without it now refuses.
+
   THE VERSION IS 0.3.0-SNAPSHOT AND THE RELEASE IS 0.3.0 - his answer to OD-6,
   the same day. It develops as a SNAPSHOT and the push flips it, because Maven
   Central accepts a coordinate ONCE: a 0.3.0 rebuilt after the security review
@@ -58,7 +61,7 @@
 
     <groupId>com.raposza.oidc</groupId>
     <artifactId>raposza-oidc</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
     <packaging>pom</packaging>
     <name>Raposza OIDC</name>
     <description>The shared identity provider: a JWKS, an OpenID Provider surface and a mint.</description>
@@ -121,6 +124,12 @@
         <maven.javadoc.version>3.12.0</maven.javadoc.version>
         <maven.gpg.version>3.2.8</maven.gpg.version>
         <central.publishing.version>0.11.0</central.publishing.version>
+
+        <!-- Raposza Design - Inter, Hack, the tokens; its own workspace and
+             release. CARRIED in the fat jar and served from META-INF/resources:
+             a standalone web component never loads them over the network.
+             A release of this tree needs a released version here. -->
+        <raposza.design.version>0.4.0</raposza.design.version>
     </properties>
 
     <dependencyManagement>
@@ -129,6 +138,11 @@
                 <groupId>com.raposza.oidc</groupId>
                 <artifactId>raposza-oidc-core</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.raposza.design</groupId>
+                <artifactId>raposza-design</artifactId>
+                <version>${raposza.design.version}</version>
             </dependency>
             <dependency>
                 <groupId>com.nimbusds</groupId>

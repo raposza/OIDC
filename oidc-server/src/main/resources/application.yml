@@ -46,14 +46,15 @@ raposza:
   jwtmint:
     # blank takes ~/.raposza/jwtmint/keys
     dir-keys: ""
-    # BLANK RESOLVES ONE ISSUER AT STARTUP - http://<site-local IPv4>:<port>,
-    # lowest address first so a reboot cannot change it. That one string is the
-    # discovery document's `issuer`, the base of every endpoint URL it
-    # advertises, and the `iss` of every token minted; RFC 8414 section 3.3
-    # compares them literally, and the per-request derivation this replaced
-    # made them disagree whenever a VM and the host both used the service.
-    # Set this when the verifier reaches this machine by some other address -
-    # through a port forward, a proxy, or a host name.
+    # REQUIRED SINCE 0.4.0 - blank refuses to start. It is the address every
+    # consumer reaches this service on, and that one string is the discovery
+    # document's `issuer`, the base of every endpoint URL it advertises, and
+    # the `iss` of every token minted; RFC 8414 section 3.3 compares them
+    # literally. Until 0.4.0 a blank value was guessed from this machine's
+    # addresses, and the guess could not be right for a verifier behind a port
+    # forward, a proxy or a container network. For example
+    # http://127.0.0.1:32002 on one machine, https://id.example.com behind a
+    # proxy.
     issuer: ""
     # TWENTY-FOUR HOURS. There is no fixed ceiling in Canton: the limit is
     # whatever `max-token-lifetime` is set to, and with the key absent the

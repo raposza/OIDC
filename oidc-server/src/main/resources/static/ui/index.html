@@ -121,19 +121,24 @@
       <h2>Users</h2>
       <p class="hint">
         The name is the <code>sub</code> of every token issued to that person.
-        Passwords are stored as typed, in <code id="users-file"></code>. This is
-        a test system and nothing about it is safe.
+        Passwords and claims are stored as typed, in <code id="users-file"></code>.
+        This is a test system and nothing about it is safe.
       </p>
       <table class="endpoints"><tbody id="users-rows"></tbody></table>
     </section>
 
     <section class="card tab hidden" id="tab-users-add">
-      <h2>Add a user, or change a password</h2>
+      <h2>Add a user, or change one</h2>
+      <p class="hint">A blank password keeps an existing user's. The claims are the standard ones of OpenID Connect Core 5.1, released only for the scope that asks for them - <code>profile</code>, <code>email</code>, <code>address</code>, <code>phone</code>. Blank keeps a user's claims; <code>{}</code> removes them.</p>
       <form class="form" id="form-user">
         <div class="grid">
           <label>Name <input id="user-name" type="text" placeholder="alice" required></label>
-          <label>Password <input id="user-password" type="text" required></label>
+          <label>Password <input id="user-password" type="text"></label>
         </div>
+        <label>Claims, JSON
+          <textarea id="user-claims" rows="4" spellcheck="false"
+                    placeholder='{"name": "Alice Doe", "email": "alice@example.com", "email_verified": true}'></textarea>
+        </label>
         <div class="actions"><button type="submit">Save</button></div>
       </form>
     </section>

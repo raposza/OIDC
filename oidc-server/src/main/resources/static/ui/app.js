@@ -62,6 +62,10 @@ function oops(strMessage) {
 // the gate appears wherever the session expired rather than in five places.
 async function api(strPath, objOpts) {
     const opts = Object.assign({credentials: 'same-origin'}, objOpts || {});
+    // EVERY CALL CARRIES THE UI HEADER. The service refuses a write that arrives
+    // on the session without it, so a page on another site cannot use this
+    // browser's sign-in - AdminGuard, 0.4.0.
+    opts.headers = Object.assign({'X-Raposza-UI': '1'}, opts.headers || {});
     if (opts.body !== undefined && typeof opts.body !== 'string') {
         opts.body = JSON.stringify(opts.body);
         opts.headers = Object.assign({'Content-Type': 'application/json'},
@@ -240,9 +244,26 @@ mapLoad.users = async function () {
     obj.names.forEach(function (strName) {
         const tr = row(tbody);
         cell(tr, strName, 'mono');
+        const objClaims = (obj.claims && obj.claims[strName]) || {};
+        const lstClaim = Object.keys(objClaims);
+        cell(tr, lstClaim.length ? lstClaim.join(', ') : 'no claims');
 
         const tdAct = cell(tr, '', 'act');
         clear(tdAct);
+
+        // EDIT FILLS THE FORM, password blank - a blank password keeps the one
+        // the user has, so the claims can be changed without retyping it.
+        const btnEdit = document.createElement('button');
+        btnEdit.type = 'button';
+        btnEdit.className = 'small';
+        btnEdit.textContent = 'Edit';
+        btnEdit.onclick = function () {
+            el('user-name').value = strName;
+            el('user-password').value = '';
+            el('user-claims').value = lstClaim.length ? JSON.stringify(objClaims, null, 2) : '';
+            el('user-claims').focus();
+        };
+        tdAct.appendChild(btnEdit);
 
         const btnDel = document.createElement('button');
         btnDel.type = 'button';
@@ -498,12 +519,26 @@ function wire() {
 
     el('form-user').onsubmit = function (ev) {
         ev.preventDefault();
-        api('/api/ui/users', {method: 'POST', body: {
+        const body = {
             name: el('user-name').value,
             password: el('user-password').value
-        }}).then(function () {
+        };
+        // BLANK KEEPS the claims a user has, so a password change never loses
+        // them; `{}` removes them.
+        const strClaims = strOrNull(el('user-claims').value);
+        if (strClaims !== null) {
+            try {
+                body.claims = JSON.parse(strClaims);
+            }
+            catch (ex) {
+                oops('the claims are not JSON: ' + ex.message);
+                return;
+            }
+        }
+        api('/api/ui/users', {method: 'POST', body: body}).then(function () {
             el('user-name').value = '';
             el('user-password').value = '';
+            el('user-claims').value = '';
             return mapLoad.users();
         }).catch(ex => oops(ex.message));
     };

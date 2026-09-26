@@ -13,22 +13,32 @@
   rows with an action column, and the `.right` alignment on the tab bar.
 
   NO FRAMEWORK. One file - D-774.
+
+  THE FONTS ARE INTER AND HACK - the design package, D-848. fonts.css comes
+  from raposza-design on this server's OWN classpath; the path is relative so
+  it holds behind a proxy that mounts the service under a prefix.
 */
 
+@import url("../raposza/fonts.css");
+@import url("../raposza/tokens.css");
+
+/* THE RAPOSZA TOKENS - his instruction, 2026-09-24: OIDC conforms to the
+   Raposza design guidelines, ONE accent for all apps. The DevTools3 values
+   these replace are gone; the neutrals below have no token yet and stay. */
 :root {
-  --bg: #f5f6f8;
-  --card-bg: #ffffff;
-  --fg: #1f2328;
-  --fg-muted: #57606a;
-  --border: #d0d7de;
-  --accent: #0969da;
-  --accent-hover: #0550a0;
-  --ok: #1a7f37;
-  --error: #cf222e;
-  --code-bg: #f6f8fa;
-  --mono: ui-monospace, "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  --radius: 6px;
+  --bg: var(--rz-bg);
+  --card-bg: var(--rz-surface);
+  --fg: var(--rz-fg);
+  --fg-muted: var(--rz-fg-muted);
+  --border: var(--rz-border);
+  --accent: var(--rz-accent);
+  --accent-hover: color-mix(in srgb, var(--rz-accent) 80%, black);
+  --ok: var(--rz-ok);
+  --error: var(--rz-bad);
+  --code-bg: var(--rz-code-bg);
+  --mono: var(--rz-font-mono);
+  --sans: var(--rz-font-sans);
+  --radius: var(--rz-arc);
   --shadow: 0 1px 2px rgba(0,0,0,.04), 0 1px 3px rgba(0,0,0,.06);
   --content-max: 960px;
   --content-pad: 16px;
@@ -146,7 +156,7 @@ input[type="password"]:focus,
 input[type="number"]:focus,
 select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(9,105,218,.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 textarea {
@@ -165,7 +175,7 @@ textarea {
 
 textarea:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(9,105,218,.15);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 15%, transparent);
 }
 
 textarea[readonly] {
@@ -307,7 +317,7 @@ footer {
 
 .seg-btn {
   color: var(--fg);
-  background: rgba(9,105,218,.10);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   border: 2px solid transparent;
   border-radius: 6px;
   padding: 6px 20px;
@@ -321,12 +331,12 @@ footer {
 
 .seg-btn:hover {
   color: var(--fg);
-  background: rgba(9,105,218,.16);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .seg-btn.active {
   color: var(--fg);
-  background: rgba(9,105,218,.10);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
   border-color: var(--accent);
 }
 

@@ -6,6 +6,76 @@ Version numbers here are this repository's own. `0.3.0` is the first release;
 `0.1` and `0.2` were the two internal copies this replaces and were never
 published under these coordinates.
 
+## 0.4.0 - 2026-09-26
+
+### Added
+
+* **Users carry the standard claims** of OpenID Connect Core 1.0 section 5.1 -
+  `name`, `email`, `address`, `phone_number` and the rest - set on the Users
+  page or in `users.json`. A scope releases its claims at UserInfo, Core 5.4,
+  and the discovery document now advertises `profile`, `email`, `address` and
+  `phone` and every standard claim. A `users.json` from 0.3.0 is read
+  unchanged.
+* **The `claims` request parameter**, Core 5.5 - a claim asked for by name is
+  released where it was asked for, at UserInfo or in the ID token.
+  `essential` and `value` are accepted and not enforced.
+  `claims_parameter_supported` is advertised.
+* **Every ID token carries `acr` `"0"`**, and `acr_values_supported` advertises
+  it: Core section 2's value for an authentication below ISO/IEC 29115 level
+  1, which is what this service performs.
+* **A reused authorization code revokes what it issued** as far as this
+  service can, RFC 6749 section 4.1.2: UserInfo refuses the grant's access
+  tokens and its refresh token is forgotten.
+* **An unsigned request object is processed** - `request` by value with
+  `alg: none`, Core 6.1. Its members supersede the query's, `client_id` and
+  `response_type` must match, and discovery advertises
+  `request_parameter_supported` and `request_object_signing_alg_values_supported`
+  `["none"]`. A signed object is `invalid_request_object`; `request_uri` is
+  still refused. 0.3.0 refused every request object.
+* **The web UI and the sign-in page take their fonts, colours and logo from
+  `com.raposza.design:raposza-design:0.4.0`**, served from its jar under
+  `/raposza/`.
+
+### Fixed
+
+* **Logout no longer follows an unregistered `post_logout_redirect_uri`.** Once
+  a client is registered, the URI must be one of that client's registered
+  redirect URIs - the client named by `client_id` or by the `id_token_hint` -
+  and anything else is refused with an error page, the session left as it was.
+  0.3.0 followed any absolute http(s) URI: an open redirect on the issuer's
+  address, and a logout a real provider would refuse.
+* **The admin credential is checked on the path Spring dispatches on.** 0.3.0
+  checked the raw request URI, so `/oauth2/jwks-private;x=1`,
+  `/oauth2/%6Awks-private` and `/%61dmin/status` reached their handlers with
+  no credential while the plain spellings were refused - the private key set
+  served whole with the admin password set.
+* **A signed-in UI session no longer authorises a write from another site.**
+  A body-less POST is a request a browser sends cross-origin without asking
+  first, and it carries the session cookie; 0.3.0 acted on it, so a page on
+  any origin could rotate a key while an administrator was signed in. A write
+  on the session now needs the `X-Raposza-UI` header, which the UI sends and
+  a cross-origin page cannot send with credentials here.
+
+### Changed
+
+* **The sign-in page says "For test only - not production"**, in bold, in the
+  design package's error colour.
+
+* **`raposza.jwtmint.issuer` is required, and the service refuses to start
+  without it.** 0.3.0 guessed a blank issuer from the machine's own addresses -
+  the lowest site-local IPv4, sorted as strings - and on a workstation with a
+  container network the guess was the pod network's own address, so every
+  consumer rejected every token. The issuer is compared literally by every
+  verifier, so it is now always set by whoever deploys the service. A
+  standalone service still also requires an admin password.
+
+### Notes
+
+* **0.3.0 already had a sign-in session** - the `raposza_oidc_session` cookie,
+  so a second authorization request from the same browser needs no login, and
+  `prompt=none`, `id_token_hint` and `max_age` work as Core 3.1.2.1 defines
+  them. Its entry above does not list it.
+
 ## 0.3.0 - 2026-09-19
 
 The first release. Everything below describes what exists at 0.3.0 rather than

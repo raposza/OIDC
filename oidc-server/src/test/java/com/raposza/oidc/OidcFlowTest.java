@@ -53,7 +53,10 @@ class OidcFlowTest {
                 3600L, "RS256", "raposza", "admin", "", false);
         MintKeyStore store = new MintKeyStore(settings);
         minter = new MintService(store, settings);
-        flow = new OidcFlow(minter, store, new IssuerResolver(settings, 32002), settings);
+        OidcUsers users = new OidcUsers(settings, "sv-user:123456");
+        users.flagPut("sv-user", "", Map.of("name", "SV User", "email", "sv@example.com",
+                "email_verified", Boolean.TRUE));
+        flow = new OidcFlow(minter, store, new IssuerResolver(settings), settings, users);
     }
 
 
@@ -91,6 +94,68 @@ class OidcFlowTest {
         assertNotNull(claimsId.getExpirationTime());
 
         assertEquals("sv-user", flow.strSubjectOf(strAccess));
+    }
+
+
+    @Test
+    void aScopeReleasesAtUserInfoAndNotInTheIdToken() throws Exception {
+        Map<String, Object> map = flow.mapExchangeCode(strCode("openid email"), STR_CLIENT,
+                STR_REDIRECT, STR_VERIFIER);
+        JWTClaimsSet claimsId = SignedJWT.parse((String) map.get("id_token")).getJWTClaimsSet();
+        assertNull(claimsId.getClaim("email"));
+        assertNull(claimsId.getClaim("name"));
+        assertEquals("0", claimsId.getStringClaim("acr"));
+
+        Map<String, Object> mapInfo = flow.mapUserInfo((String) map.get("access_token"));
+        assertEquals("sv-user", mapInfo.get("sub"));
+        assertEquals("sv@example.com", mapInfo.get("email"));
+        assertFalse(mapInfo.containsKey("name"));
+        assertEquals(STR_CLIENT, flow.strClientOfHint((String) map.get("id_token")));
+    }
+
+
+    @Test
+    void theClaimsParameterReleasesByNameWhereAsked() throws Exception {
+        String strCode = flow.strIssueCode("sv-user", STR_CLIENT, STR_REDIRECT, "openid", STR_AUDIENCE,
+                OidcFlow.strS256(STR_VERIFIER), "nonce-1", java.time.Instant.now(),
+                OidcClaims.mapRequested("{\"id_token\":{\"name\":{\"essential\":true}},"
+                        + "\"userinfo\":{\"email\":null,\"shoe_size\":null}}"));
+        Map<String, Object> map = flow.mapExchangeCode(strCode, STR_CLIENT, STR_REDIRECT, STR_VERIFIER);
+
+        JWTClaimsSet claimsId = SignedJWT.parse((String) map.get("id_token")).getJWTClaimsSet();
+        assertEquals("SV User", claimsId.getStringClaim("name"));
+        assertNull(claimsId.getClaim("email"));
+        Map<String, Object> mapInfo = flow.mapUserInfo((String) map.get("access_token"));
+        assertEquals("sv@example.com", mapInfo.get("email"));
+        assertFalse(mapInfo.containsKey("name"));
+        assertThrows(IllegalArgumentException.class, () -> OidcClaims.mapRequested("[1]"));
+    }
+
+
+    @Test
+    void aCodeUsedTwiceRevokesWhatItIssued() {
+        String strCode = strCode("openid");
+        Map<String, Object> map = flow.mapExchangeCode(strCode, STR_CLIENT, STR_REDIRECT, STR_VERIFIER);
+        String strAccess = (String) map.get("access_token");
+        assertNotNull(flow.mapUserInfo(strAccess));
+
+        assertEquals("invalid_grant",
+                strErrorOf(() -> flow.mapExchangeCode(strCode, STR_CLIENT, STR_REDIRECT, STR_VERIFIER)));
+        assertNull(flow.mapUserInfo(strAccess));
+        assertEquals("invalid_grant",
+                strErrorOf(() -> flow.mapRefresh((String) map.get("refresh_token"), STR_CLIENT)));
+    }
+
+
+    @Test
+    void withoutTheScopeNoClaimIsReleased() throws Exception {
+        Map<String, Object> map = flow.mapExchangeCode(strCode("openid"), STR_CLIENT,
+                STR_REDIRECT, STR_VERIFIER);
+        JWTClaimsSet claimsId = SignedJWT.parse((String) map.get("id_token")).getJWTClaimsSet();
+        assertNull(claimsId.getClaim("email"));
+        Map<String, Object> mapInfo = flow.mapUserInfo((String) map.get("access_token"));
+        assertEquals(Map.of("sub", "sv-user", "preferred_username", "sv-user"), mapInfo);
+        assertNull(flow.mapUserInfo("not.a.token"));
     }
 
 

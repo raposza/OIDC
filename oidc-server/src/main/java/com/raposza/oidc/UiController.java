@@ -229,25 +229,40 @@ public final class UiController {
     }
 
 
-    @Operation(summary = "Who can sign in", description = "Names only.")
+    @Operation(summary = "Who can sign in",
+            description = "Names, and each user's standard claims. No password is returned.")
     @GetMapping("/api/ui/users")
     public Map<String, Object> mapUsers() {
         Map<String, Object> mapOut = new LinkedHashMap<>();
         mapOut.put("file", String.valueOf(users.fileStore()));
         mapOut.put("names", users.lstName());
+        Map<String, Object> mapClaims = new LinkedHashMap<>();
+        for (String strName : users.lstName()) {
+            mapClaims.put(strName, users.mapClaims(strName));
+        }
+        mapOut.put("claims", mapClaims);
         return mapOut;
     }
 
 
-    @Operation(summary = "Add a user or change its password",
-            description = "`name` and `password`. The name is the `sub` of"
-                    + " every token issued to that person.")
+    @Operation(summary = "Add a user, or change its password or claims",
+            description = "`name`, `password` and optionally `claims`, an object of"
+                    + " OpenID Connect Core 1.0 section 5.1 standard claims. The name is"
+                    + " the `sub` of every token issued to that person. A blank password"
+                    + " keeps an existing user's; absent `claims` keep its claims and an"
+                    + " empty object removes them.")
     @PostMapping("/api/ui/users")
-    public Map<String, Object> mapPutUser(@RequestBody Map<String, String> mapIn) {
-        String strName = mapIn == null ? null : mapIn.get("name");
-        String strPassword = mapIn == null ? null : mapIn.get("password");
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> mapPutUser(@RequestBody Map<String, Object> mapIn) {
+        Object objName = mapIn == null ? null : mapIn.get("name");
+        Object objPassword = mapIn == null ? null : mapIn.get("password");
+        Object objClaims = mapIn == null ? null : mapIn.get("claims");
+        if (objClaims != null && !(objClaims instanceof Map))
+            throw new IllegalArgumentException("claims must be a JSON object");
 
-        boolean flagNew = users.flagPut(strName, strPassword);
+        boolean flagNew = users.flagPut(objName == null ? null : String.valueOf(objName),
+                objPassword == null ? null : String.valueOf(objPassword),
+                (Map<String, Object>) objClaims);
         Map<String, Object> mapOut = new LinkedHashMap<>();
         mapOut.put("added", flagNew);
         mapOut.put("names", users.lstName());

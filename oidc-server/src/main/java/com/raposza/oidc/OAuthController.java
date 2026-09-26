@@ -18,10 +18,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The OAuth and OpenID Connect token surface: the discovery document and the
@@ -138,16 +141,31 @@ public class OAuthController {
         map.put("subject_types_supported", List.of("public"));
         map.put("id_token_signing_alg_values_supported", List.of("RS256"));
         map.put("code_challenge_methods_supported", List.of(OidcFlow.STR_METHOD_S256));
-        // STATED RATHER THAN LEFT TO THE DEFAULT. Both are false, and the
-        // authorization endpoint refuses either parameter outright rather than
-        // reading past it - Core 6.1 and 6.2.
-        map.put("request_parameter_supported", Boolean.FALSE);
+        // AN UNSIGNED REQUEST OBJECT BY VALUE IS READ SINCE 0.4.0 -
+        // OidcRequestObject; `none` is the one algorithm, since this service
+        // holds no client's keys. By reference is still refused, Core 6.2, and
+        // said so rather than left to the default.
+        map.put("request_parameter_supported", Boolean.TRUE);
+        map.put("request_object_signing_alg_values_supported", List.of("none"));
         map.put("request_uri_parameter_supported", Boolean.FALSE);
+        // Core 5.5 - OidcClaims.mapRequested; names are honoured, `essential`
+        // and `value` are not enforced.
+        map.put("claims_parameter_supported", Boolean.TRUE);
+        // "0" ONLY - OidcFlow.STR_ACR says why that is the true value.
+        map.put("acr_values_supported", List.of(OidcFlow.STR_ACR));
         map.put("token_endpoint_auth_methods_supported",
                 List.of("none", "client_secret_basic", "client_secret_post"));
-        map.put("scopes_supported", List.of(OidcFlow.STR_SCOPE_OPENID, MintService.STR_SCOPE_DEFAULT));
-        map.put("claims_supported", List.of("iss", "sub", "aud", "exp", "iat", "nbf", "jti",
-                "auth_time", "nonce", "at_hash", "azp", "scope", "preferred_username"));
+        // THE FOUR CORE 5.4 SCOPES SINCE 0.4.0, because a user can carry their
+        // claims - OidcClaims. Advertised only now that they are served: a scope
+        // advertised and not filled turns a skip into a failure - D-781.
+        List<String> lstScope = new ArrayList<>(List.of(OidcFlow.STR_SCOPE_OPENID,
+                MintService.STR_SCOPE_DEFAULT));
+        lstScope.addAll(OidcClaims.lstScope());
+        map.put("scopes_supported", lstScope);
+        Set<String> setClaim = new LinkedHashSet<>(List.of("iss", "sub", "aud", "exp", "iat", "nbf",
+                "jti", "auth_time", "nonce", "at_hash", "azp", "scope", "acr"));
+        setClaim.addAll(OidcClaims.setClaim());
+        map.put("claims_supported", new ArrayList<>(setClaim));
         // RFC 9207: every authorization response carries iss, so a client can
         // tell which provider answered it.
         map.put("authorization_response_iss_parameter_supported", Boolean.TRUE);
