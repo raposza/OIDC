@@ -5,8 +5,8 @@
 #
 # Starts Raposza OIDC.
 #
-#   ./run-oidc.sh --raposza.jwtmint.issuer=<url>           start from the jar that is there
-#   ./run-oidc.sh --build --raposza.jwtmint.issuer=<url>   rebuild first, then start
+#   ./run-oidc.sh --raposza.oidc.issuer=<url>           start from the jar that is there
+#   ./run-oidc.sh --build --raposza.oidc.issuer=<url>   rebuild first, then start
 #   ./run-oidc.sh --server.port=9000   any Spring argument is passed through
 #
 # THE ISSUER IS REQUIRED SINCE 0.4.0 and the service refuses to start without
@@ -14,8 +14,8 @@
 # section 3.3 compares the issuer in the discovery document and the `iss` of a
 # token LITERALLY, so it is set rather than guessed:
 #
-#   ./run-oidc.sh --raposza.jwtmint.issuer=http://127.0.0.1:32002
-#   ./run-oidc.sh --raposza.jwtmint.issuer=https://id.example.com
+#   ./run-oidc.sh --raposza.oidc.issuer=http://127.0.0.1:32002
+#   ./run-oidc.sh --raposza.oidc.issuer=https://id.example.com
 #
 # TLS IS NOT HERE. The standalone deployment terminates it at nginx or
 # equivalent - the operator's decision, D-774. This process serves plain HTTP

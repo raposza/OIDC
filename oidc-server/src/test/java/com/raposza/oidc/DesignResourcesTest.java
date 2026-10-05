@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
  * whole of it.
  *
  * Author Claude/bentzn
- * Generated 2026-09-24T08:30:00Z
  */
 class DesignResourcesTest {
 

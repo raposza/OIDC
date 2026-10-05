@@ -146,6 +146,20 @@ class OidcClientsTest {
     }
 
 
+    /** 0.5.0, RFC 6749 section 4.4: client_credentials is for confidential clients only. */
+    @Test
+    void onlyAConfidentialClientMayUseClientCredentials(@TempDir Path dirKeys) {
+        assertTrue(clients(dirKeys.resolve("open"), "").flagClientCredentials("anything-at-all"));
+
+        OidcClients reg = clients(dirKeys.resolve("strict"),
+                "wallet-ui||" + STR_URI + ",backend|s3cret|" + STR_URI);
+        assertFalse(reg.flagClientCredentials("wallet-ui"));
+        assertTrue(reg.flagClientCredentials("backend"));
+        assertFalse(reg.flagClientCredentials("something-else"));
+        assertFalse(reg.flagClientCredentials(null));
+    }
+
+
     @Test
     void aSeedEntryThatIsNotThreeFieldsNamesItself(@TempDir Path dirKeys) {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,

@@ -6,7 +6,10 @@ A small OpenID Provider for development and test systems. It holds a JWKS,
 serves an OpenID Connect and OAuth 2.0 surface against it, signs people in
 from a user list, and mints arbitrary tokens on request.
 
-**Passes the OpenID Foundation OP Basic conformance plan - 0 failures, 0 warnings.**
+**Passed the OpenID Foundation OP Basic conformance plan on 0.5.0's source,
+2026-10-05** - 35 modules: 32 passed, 0 failed, 0 warnings, and 3 that the
+suite marks for review by screenshot of the provider's own pages. The run's log
+is not published here.
 
 **IT IS NOT A PRODUCTION IDENTITY PROVIDER AND IS NOT A REPLACEMENT FOR ONE.**
 It publishes its own private keys on request, mints a token for any subject
@@ -24,7 +27,7 @@ what it promises.
 <dependency>
     <groupId>com.raposza.oidc</groupId>
     <artifactId>raposza-oidc-core</artifactId>
-    <version>0.4.0</version>
+    <version>0.5.0</version>
 </dependency>
 ```
 
@@ -33,7 +36,7 @@ web. `raposza-oidc-server` is the service; take it as a dependency to embed it,
 or take its `app` classifier, which is a runnable Spring Boot jar:
 
 ```
-java -jar raposza-oidc-server-0.4.0-app.jar --raposza.jwtmint.issuer=http://127.0.0.1:32002
+java -jar raposza-oidc-server-0.5.0-app.jar --raposza.oidc.issuer=http://127.0.0.1:32002
 ```
 
 The issuer is the address consumers reach the service on. From 0.4.0 it is
@@ -51,9 +54,12 @@ GET  /keys                                 algorithm, kid and key size per key
 GET  /keys.txt                             the same, one line per key
 GET  /.well-known/openid-configuration     the OpenID Provider configuration
 GET  /.well-known/oauth-authorization-server   the same document, RFC 8414
-GET  /oauth2/authorize                     sign in - the login page, then a code
+GET  /oauth2/authorize                     sign in - the login page, then a code;
+                                           the page POSTs back here, and the name
+                                           and password are read from that body only
 POST /oauth2/token                         authorization_code, refresh_token,
-                                           client_credentials; form or JSON.
+                                           client_credentials; form-encoded only,
+                                           a JSON body is refused with 415.
                                            Also answers at /oauth/token, /token
 GET  /oauth2/userinfo                      the signed-in user, and the claims the scope releases
 GET  /oauth2/logout                        back to post_logout_redirect_uri, when it is
@@ -89,7 +95,7 @@ script cannot.
 | Inspect | paste a token: header, claims, expiry, whether THIS key set signed it - and, if you paste a JWKS, whether THAT one does |
 
 Key, user and client management need the admin credential -
-`raposza.jwtmint.admin.user` and `.admin.password`. With no password set they
+`raposza.oidc.admin.user` and `.admin.password`. With no password set they
 are open, and the Overview page says so in as many words. A standalone
 service refuses to start in that state.
 
@@ -114,7 +120,7 @@ client turns on all three checks, for every client; removing the last reopens
 it.
 
 ```
-raposza.jwtmint.clients=wallet-ui||http://wallet.localhost:4000/cb,\
+raposza.oidc.clients=wallet-ui||http://wallet.localhost:4000/cb,\
                         sv-app|s3cret|http://sv.localhost/cb
 ```
 
@@ -144,7 +150,7 @@ literally, so an issuer that is not the origin the consumers reach has every
 token rejected by every validator the moment a proxy is in front of it.
 
 ```
-./run-oidc.sh --raposza.jwtmint.issuer=https://id.example.com
+./run-oidc.sh --raposza.oidc.issuer=https://id.example.com
 ```
 
 A worked nginx server block for that issuer:
@@ -216,22 +222,25 @@ fourteen claims: the suite checks that UserInfo carries them all.
 
 | key | meaning |
 | --- | --- |
-| `raposza.jwtmint.dir-keys` | the JWKS directory; blank is `~/.raposza/jwtmint/keys` |
-| `raposza.jwtmint.issuer` | the issuer; REQUIRED from 0.4.0, and behind a proxy the external origin |
-| `raposza.jwtmint.ttl-seconds` | default token lifetime, 86400 |
-| `raposza.jwtmint.default-alg` | default signing algorithm, RS256 |
-| `raposza.jwtmint.default-subject` | default `sub`, `raposza` |
-| `raposza.jwtmint.users` | `name:password` pairs, comma separated; seeds `users.json` |
-| `raposza.jwtmint.clients` | `id`, `secret`, `uris` separated by a vertical bar; entries comma separated; seeds `clients.json` |
-| `raposza.jwtmint.admin.user` | the admin name, `admin` |
-| `raposza.jwtmint.admin.password` | the admin password; **BLANK LEAVES THE WRITE ENDPOINTS AND THE PRIVATE JWKS OPEN** |
-| `raposza.jwtmint.standalone` | true for a service on a network; refuses to start without a password |
+| `raposza.oidc.dir-keys` | the JWKS directory; blank is `~/.raposza/jwtmint/keys` |
+| `raposza.oidc.issuer` | the issuer; REQUIRED from 0.4.0, and behind a proxy the external origin |
+| `raposza.oidc.ttl-seconds` | default token lifetime, 86400 |
+| `raposza.oidc.default-alg` | default signing algorithm, RS256 |
+| `raposza.oidc.default-subject` | default `sub`, `raposza` |
+| `raposza.oidc.users` | `name:password` pairs, comma separated; seeds `users.json` |
+| `raposza.oidc.clients` | `id`, `secret`, `uris` separated by a vertical bar; entries comma separated; seeds `clients.json` |
+| `raposza.oidc.admin.user` | the admin name, `admin` |
+| `raposza.oidc.admin.password` | the admin password; **BLANK LEAVES THE WRITE ENDPOINTS AND THE PRIVATE JWKS OPEN** |
+| `raposza.oidc.standalone` | true for a service on a network; refuses to start without a password |
 | `server.port` | 32002 |
 | `server.address` | unset, so it listens on EVERY interface |
 
-The prefix is `raposza.jwtmint` rather than `raposza.oidc` deliberately: it is
-the compatibility surface with every launcher and configuration file that
-already names it.
+The prefix is `raposza.oidc` from 0.5.0. Until 0.4.x it was `raposza.jwtmint`,
+and the 0.5.0 service REFUSES TO START when any setting still carries the old
+prefix - on the command line, in the environment as `RAPOSZA_JWTMINT_*`, or in
+a configuration file - and names the new one for each. An application that
+embeds `oidc-server` gets the same refusal by adding `new RetiredSettings()` to
+its `SpringApplication`'s listeners. The default key directory is unchanged.
 
 ## Licence
 

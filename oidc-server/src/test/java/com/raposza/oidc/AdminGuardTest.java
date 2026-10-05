@@ -143,7 +143,7 @@ class AdminGuardTest {
         IllegalStateException ex = assertThrows(IllegalStateException.class,
                 () -> new MintSettings(dirKeys.toString(), "  ", 86400, "RS256",
                         "raposza", "admin", "", false));
-        assertTrue(ex.getMessage().contains("raposza.jwtmint.issuer"));
+        assertTrue(ex.getMessage().contains("raposza.oidc.issuer"));
     }
 
 

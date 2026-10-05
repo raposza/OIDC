@@ -14,6 +14,16 @@
 
 server:
   port: 32002
+  # THE ADMIN UI'S SESSION COOKIE, JSESSIONID - 0.5.0. SameSite=Strict keeps a
+  # page on another site from riding an administrator's session; the UI is one
+  # origin and loses nothing. NOT `secure`, because the service is reached over
+  # plain http on a workstation and a browser drops a Secure cookie there.
+  # Behind an https proxy add --server.servlet.session.cookie.secure=true.
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: strict
 
 spring:
   application:
@@ -43,7 +53,9 @@ springdoc:
     path: /v3/api-docs
 
 raposza:
-  jwtmint:
+  # `raposza.jwtmint` UNTIL 0.4.x; the old names are refused from 0.5.0 -
+  # RetiredSettings.
+  oidc:
     # blank takes ~/.raposza/jwtmint/keys
     dir-keys: ""
     # REQUIRED SINCE 0.4.0 - blank refuses to start. It is the address every

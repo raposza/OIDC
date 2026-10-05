@@ -30,6 +30,13 @@ coordinate on Maven Central is immutable - so a fix arrives as a new version.
 
 ## When this was last reviewed
 
+**Reviewed 2026-10-05 for 0.5.0**, against the tree as it stands -
+`docs/security-review.md` carries the result. No new finding. Six statements
+there were stale and are corrected: four named 0.4.1, a version that was never
+released and whose changes ship in 0.5.0, and the build's integrity and its
+third-party versions had not moved with the build. The refusal of the old
+`raposza.jwtmint.*` settings is added, and where it applies.
+
 **Reviewed 2026-09-26 for 0.4.0**, against the tree as it then stood, and a
 second time the same day - `docs/security-review.md` carries the result, the
 statements each pass corrected and the three findings they fixed: an open
@@ -63,7 +70,7 @@ should read before running it:
   reused authorization code, whose tokens UserInfo then refuses - a relying
   party's resource server that checks only the signature still accepts them.
 * **It listens on every interface by default** and terminates no TLS. The
-  issuer is required - `raposza.jwtmint.issuer`, and a service started without
+  issuer is required - `raposza.oidc.issuer`, and a service started without
   one refuses - and behind a proxy it is the external origin: RFC 8414 section
   3.3 compares issuers literally.
 
@@ -72,8 +79,11 @@ registered, an unknown `client_id`, an unregistered `redirect_uri` and a wrong
 or unexpected `client_secret` are all refused, and the first two are refused
 WITHOUT redirecting the error - OpenID Connect Core 1.0 section 3.1.2.6. Since
 0.4.0 a logout's `post_logout_redirect_uri` is followed only when it is
-registered for the client too. While no client is registered none of this is
-checked, and the service says so at startup. That is correctness, not hardening: it exists so that a component
+registered for the client too, and since 0.5.0 a public client cannot use
+`client_credentials`. While no client is registered none of this is checked,
+and the service says so at startup. Since 0.5.0 a sign-in name and password
+are read from the form's POST body only, never from an address, whatever is
+registered. That is correctness, not hardening: it exists so that a component
 which works here also works against a real provider.
 
 `docs/security-review.md` is the full posture document: what executes, what is

@@ -8,7 +8,21 @@ established by a third party, and no third party has signed anything about it.
 When an external audit exists it will be published beside this document,
 unedited.
 
-**Reviewed 2026-09-26 for 0.4.0.** `SUITE.md` B8, against the tree as it
+**Reviewed 2026-10-05 for 0.5.0**, against the tree as it stands. Read in
+the same pass: `SECURITY.md`, this document, `README.md`'s "Settings" and the
+endpoint list in `OidcApp`. **NO NEW FINDING. SIX STATEMENTS HERE WERE STALE
+and are corrected below:** four named 0.4.1, a version that was never
+released, whose changes ship in 0.5.0; section 2 said every version but Nimbus
+and springdoc was the Boot BOM's, where five are now raised over it for published
+advisories and the build refuses repositories, unversioned plugins and dynamic
+versions; and section 9 had Jackson at the BOM's version and no Tomcat.
+Section 1 gains the refusal of the old `raposza.jwtmint.*` settings, which
+belongs to the service's own start and not to the library - `README.md`
+claimed it for every start and is corrected too, as is `OidcApp`'s endpoint
+list, which still said the token endpoint takes JSON. Everything else was
+confirmed against the source, not carried forward.
+
+**Reviewed 2026-09-26 for 0.4.0**, against the tree as it
 stands. Read in the same pass: `SECURITY.md`, this document, and `README.md`'s
 endpoint list, "Behind a reverse proxy", "Users and their claims" and
 "Settings". **SIX STATEMENTS WERE STALE AGAINST THE TREE and are corrected
@@ -73,14 +87,36 @@ line arguments, environment variables and any external configuration Spring is
 told to read. Those are TRUSTED INPUT in the ordinary sense - they choose where
 keys live and who may sign in - and they are your own files.
 
+**Settings under the old prefix are refused, since 0.5.0.** A start of the
+service - the `app` jar, `run-oidc.sh` - that finds a `raposza.jwtmint.*`
+setting, or `RAPOSZA_JWTMINT_*` in the environment, in any property source,
+stops before anything binds and names the `raposza.oidc.*` setting that
+replaces it. Ignored, an old `admin.password` would start the service with its
+guarded paths open, which only the startup WARN would say. `RetiredSettings`
+does it, registered by `OidcApp`'s `main`; an application that embeds
+`oidc-server` builds its own `SpringApplication` and gets it only by adding
+that listener.
+
 ## 2 - What is downloaded, from where, and how integrity is established
 
 At BUILD time, from Maven Central: Spring Boot 3.5.16 and its transitive
-closure, Nimbus JOSE+JWT 9.40, springdoc-openapi 2.8.17, and the Maven plugins
-named in `pom.xml`. Every version is pinned - Nimbus and springdoc explicitly
-in `<properties>`, the rest by the `spring-boot-starter-parent` BOM. Integrity
-is Maven's: the checksums Central serves beside each artefact, verified by the
-resolver.
+closure, Nimbus JOSE+JWT 10.10, springdoc-openapi 2.8.17, and the Maven plugins
+named in `pom.xml`. Every version is stated. Nimbus and springdoc are pinned in
+`<properties>`, and so are five raised over the versions the
+`spring-boot-starter-parent` BOM manages, each for a published advisory -
+Jackson 2.21.7, Logback 1.5.38, Log4j 2.25.5, Apache Commons Lang 3.20.0 and
+Tomcat 10.1.60; the rest are the BOM's. The plugins' own dependencies are
+raised the same way where an advisory names one, and the comment beside each
+says which. Integrity is Maven's: the checksums Central serves beside each
+artefact, verified by the resolver.
+
+**The build refuses what would let it change underneath itself.** The enforcer
+runs at `validate` and fails the build on a repository declared in any pom, a
+plugin of the clean or default lifecycle without a stated version, and a
+dynamic or SNAPSHOT dependency version other than this reactor's own
+`oidc-core`. Before a release, every dependency and plugin of the build - their
+own dependencies included - is listed with the hash of its bytes, checked
+against OSV.dev for known advisories, and read by the maintainer.
 
 At RUN time, nothing. The service fetches no remote configuration, no remote
 key set and no remote metadata. It has no outbound HTTP client at all.
@@ -106,8 +142,8 @@ The surface, and what guards each part:
 | --- | --- |
 | `/.well-known/openid-configuration`, `/.well-known/oauth-authorization-server` | none, by design - RFC 8414 |
 | `/oauth2/jwks`, `/jwks.json` | none, by design - the public key set |
-| `/oauth2/authorize` | the user's own name and password, from `users.json` - or a live sign-in session, the HttpOnly cookie `raposza_oidc_session`, SameSite=Lax, `Secure` when the issuer is https, 12 hours from sign-in |
-| the same, with `request` | an UNSIGNED request object, `alg: none`, is merged into the parameters before any check, Core 6.1; it carries the trust of the query it arrives in and no more. A signed one is refused - this service holds no client's keys - and `request_uri` is refused |
+| `/oauth2/authorize` | the user's own name and password, from `users.json` - or a live sign-in session, the HttpOnly cookie `raposza_oidc_session`, SameSite=Lax, `Secure` when the issuer is https, 12 hours from sign-in. The name and password are read ONLY from a POST form body: on a GET, or in the query string of a POST, they are refused - 0.5.0 |
+| the same, with `request` | an UNSIGNED request object, `alg: none`, is merged into the parameters before any check, Core 6.1; it carries the trust of the query it arrives in and no more, and a `username` or `password` inside it is dropped - 0.5.0. A signed one is refused - this service holds no client's keys - and `request_uri` is refused |
 | `/oauth2/token`, and its aliases `/oauth/token` and `/token` | the client's, once a client is registered - see below |
 | `/oauth2/userinfo` | the bearer token issued by this service |
 | `/oauth2/logout` | none. It ends the browser's session, and follows `post_logout_redirect_uri` only when that URI is registered for the client - below |
@@ -121,15 +157,18 @@ The surface, and what guards each part:
 | `/` | none - a plain-text index that names the ABSOLUTE PATH of the key directory and the issuer |
 
 **The admin credential is held in clear in configuration** -
-`raposza.jwtmint.admin.user` and `.admin.password` - **and compared with
+`raposza.oidc.admin.user` and `.admin.password` - **and compared with
 `MessageDigest.isEqual`**, which is constant-time, so a wrong password cannot be
 found one byte at a time. `AdminGuard` is a `OncePerRequestFilter` - there is no
 Spring Security in the tree - and it accepts EITHER an HTTP Basic header or a
 servlet session marked signed-in by `/api/ui/login`, which is how the web UI
-stays signed in. WITH NO PASSWORD SET THE GUARDED PATHS ARE OPEN, and the
+stays signed in. That session's cookie, `JSESSIONID`, is `HttpOnly` and
+`SameSite=Strict` since 0.5.0, and not `Secure`: a browser drops a Secure
+cookie over plain http; behind an https proxy set
+`server.servlet.session.cookie.secure=true`. WITH NO PASSWORD SET THE GUARDED PATHS ARE OPEN, and the
 service logs a WARN naming them. Every start requires
-`raposza.jwtmint.issuer` and refuses without it; a service started with
-`raposza.jwtmint.standalone=true` refuses to start without a password as well. `/api/ui/login` is itself unguarded and unthrottled, which is
+`raposza.oidc.issuer` and refuses without it; a service started with
+`raposza.oidc.standalone=true` refuses to start without a password as well. `/api/ui/login` is itself unguarded and unthrottled, which is
 what L-3 means by no lockout.
 
 **The guard decides on the path Spring dispatches on**, the servlet path the
@@ -150,7 +189,9 @@ reopens it. Both states are logged at startup. An unknown `client_id` and an
 unregistered `redirect_uri` are refused WITHOUT redirecting the error, because
 the URI in such a request is precisely the one that cannot be trusted to
 receive it - OpenID Connect Core 1.0 section 3.1.2.6. `redirect_uri` is
-compared as a whole string, section 3.1.2.1.
+compared as a whole string, section 3.1.2.1. **A public client cannot use
+`client_credentials`** - `unauthorized_client`, RFC 6749 section 4.4, since
+0.5.0; with an empty registry it still can.
 
 **The same registry governs logout, since 0.4.0.** A `post_logout_redirect_uri`
 is followed only when it is registered for the client named by `client_id`, or
@@ -186,7 +227,7 @@ nothing here.
 
 ## 4 - What is written to disk, and with what permissions
 
-FOUR files, all in the key directory - `raposza.jwtmint.dir-keys`, by default
+FOUR files, all in the key directory - `raposza.oidc.dir-keys`, by default
 `~/.raposza/jwtmint/keys`:
 
 | file | contents |
@@ -241,7 +282,7 @@ all when no password is set.
 
 **User passwords.** Plain text in `users.json`, compared with
 `MessageDigest.isEqual` - constant-time, NOT `String.equals`, which is what an
-earlier draft of this section said. Seeded once from `raposza.jwtmint.users`
+earlier draft of this section said. Seeded once from `raposza.oidc.users`
 when the file does not exist; after that the file always wins. No hashing, no
 salt, no lockout, no expiry.
 
@@ -287,8 +328,11 @@ opened, with its user name; client ids after a load or a change; and the two
 WARN lines that say the admin credential and the client registry are unset.
 
 **No password, no client secret, no private key and no issued token is
-logged**, and none of the objects that hold them has a `toString` that would
-put one in an exception message. Key ids, user names and client ids are logged
+logged**, and this code passes none of the objects that hold them to a log
+line or an exception message. Four records do carry one in the `toString` Java
+generates for them - `OidcUsers.User` the password, `OidcClient` the client
+secret, `MintRequest` an HS* secret and `MintResponse` the token - so any
+`toString` of them prints it. Key ids, user names and client ids are logged
 by design - they are what makes a failed sign-in diagnosable.
 
 An unhandled exception is rendered by `MintErrors` into an error body; it
@@ -320,9 +364,11 @@ Central:
 | what | version | why |
 | --- | --- | --- |
 | Spring Boot (web starter) | 3.5.16 | the HTTP server and wiring |
-| Nimbus JOSE+JWT | 9.40 | every JOSE operation in `oidc-core` |
+| Tomcat (embedded) | 10.1.60, over the BOM's 10.1.55 | the HTTP server Spring Boot starts |
+| Nimbus JOSE+JWT | 10.10 | every JOSE operation in `oidc-core` |
 | springdoc-openapi (webmvc-ui) | 2.8.17 | the OpenAPI document and Swagger UI |
-| Jackson | via the Boot BOM | JSON, including the three stores |
+| Jackson | 2.21.7, over the BOM's 2.21.4 | JSON, including the three stores |
+| Logback | 1.5.38, over the BOM's 1.5.34 | the log |
 | Raposza Design | 0.4.0 | the fonts, colour tokens and logo of the web UI and the sign-in page, served from its jar; it carries Inter (SIL Open Font License 1.1) and Hack (MIT with the Bitstream Vera License) |
 
 `oidc-core` depends on Nimbus and the JDK and nothing else, deliberately: it is
@@ -382,7 +428,7 @@ bugs; every one is a deliberate consequence of what this is for.
   renumbered, because the ids are cited elsewhere.
 * **L-9 The bind address is every interface by default.** Section 3 and
   `README.md` say what to set. The issuer is NOT resolved from the machine's
-  addresses since 0.4.0: `raposza.jwtmint.issuer` is required and the service
+  addresses since 0.4.0: `raposza.oidc.issuer` is required and the service
   refuses to start without it. Until then a blank issuer was guessed, and on a
   workstation running a container network the guess advertised the pod
   network's own address.

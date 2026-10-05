@@ -9,6 +9,7 @@ import com.nimbusds.jwt.PlainJWT;
 import java.text.ParseException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The `request` parameter - OpenID Connect Core 1.0 section 6.1 - unsigned.
@@ -39,12 +40,23 @@ import java.util.Map;
  * members become parameters; a structured member such as `claims` is not a
  * parameter this service reads and is left out.
  *
+ * <h2>Never a name or a password - 0.5.0</h2>
+ *
+ * `username` and `password` are this service's sign-in form fields, not
+ * request parameters, and an object carrying them was until 0.5.0 a way to sign
+ * in with credentials in the address - which every proxy and access log on the
+ * way writes down. They are dropped from the object;
+ * {@link OidcController} refuses them in the query.
+ *
  * Author Claude/bentzn
  */
 final class OidcRequestObject {
 
     /** The parameter this class reads. */
     static final String STR_PARAM = "request";
+
+    /** The sign-in form's fields, which an object never supplies. */
+    static final Set<String> SET_CREDENTIAL = Set.of("username", "password");
 
 
     /**
@@ -96,6 +108,8 @@ final class OidcRequestObject {
             if (!(objValue instanceof String || objValue instanceof Number || objValue instanceof Boolean))
                 continue;
             String strKey = entClaim.getKey();
+            if (SET_CREDENTIAL.contains(strKey))
+                continue;
             String strValue = String.valueOf(objValue);
             String strQuery = mapQuery.get(strKey);
             if (("client_id".equals(strKey) || "response_type".equals(strKey))

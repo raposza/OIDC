@@ -174,7 +174,7 @@ mapLoad.overview = async function () {
     const warn = el('overview-warn');
     warn.textContent = 'No admin credential is set, so key and user management'
             + ' are open to anyone who can reach this service. Set'
-            + ' raposza.jwtmint.admin.password to close them.';
+            + ' raposza.oidc.admin.password to close them.';
     show(warn, !obj.admin_credential_set);
 };
 

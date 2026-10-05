@@ -52,7 +52,7 @@ import java.util.Map;
  *
  * <h2>The file, and the setting that seeds it</h2>
  *
- * `clients.json` beside the JWKS and the users. `raposza.jwtmint.clients` is
+ * `clients.json` beside the JWKS and the users. `raposza.oidc.clients` is
  * read once, when that file does not exist, and becomes the file:
  *
  * <pre>
@@ -92,7 +92,7 @@ public final class OidcClients {
      * @throws IllegalArgumentException when an entry has no id
      */
     public OidcClients(MintSettings settings,
-            @Value("${raposza.jwtmint.clients:}") String strClients) {
+            @Value("${raposza.oidc.clients:}") String strClients) {
         this.fileStore = settings.dirKeys().resolve(STR_FILE);
 
         if (Files.isRegularFile(fileStore)) {
@@ -207,6 +207,26 @@ public final class OidcClients {
 
 
     /**
+     * Whether a client may use the `client_credentials` grant - 0.5.0.
+     *
+     * RFC 6749 SECTION 4.4: "The client credentials grant type MUST only be
+     * used by confidential clients." A public client presents no credential,
+     * so a token minted for it is minted for whoever typed its id.
+     *
+     * @param idClient the client
+     * @return true when the grant may proceed - always true while the
+     *         registry is empty
+     */
+    public boolean flagClientCredentials(String idClient) {
+        if (!flagStrict())
+            return true;
+
+        OidcClient client = client(idClient);
+        return client != null && !client.flagPublic();
+    }
+
+
+    /**
      * Adds a client, or replaces one.
      *
      * @param idClient the id
@@ -282,7 +302,7 @@ public final class OidcClients {
 
             String[] arrField = strTrim.split("\\|", -1);
             if (arrField.length != 3 || arrField[0].trim().isEmpty()) {
-                throw new IllegalArgumentException("raposza.jwtmint.clients: '"
+                throw new IllegalArgumentException("raposza.oidc.clients: '"
                         + arrField[0] + "' is not id|secret|uri uri");
             }
 

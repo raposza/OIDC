@@ -44,7 +44,7 @@ import java.util.Set;
  *
  * Managing users from the UI means writing them, and a `@Value` string cannot
  * be written. So the store is `users.json` beside the JWKS. The setting
- * `raposza.jwtmint.users` is read exactly once, when that file does not yet
+ * `raposza.oidc.users` is read exactly once, when that file does not yet
  * exist, and its contents become the file - so every `basenet.conf`, every
  * launcher and every Helm value that names users keeps working with no change,
  * and the first edit from the UI takes over from there.
@@ -123,7 +123,7 @@ public final class OidcUsers {
      * @throws IllegalArgumentException when a seed pair has no name or no colon
      */
     public OidcUsers(MintSettings settings,
-            @Value("${raposza.jwtmint.users:}") String strUsers) {
+            @Value("${raposza.oidc.users:}") String strUsers) {
         this.fileStore = settings.dirKeys().resolve(STR_FILE);
 
         if (Files.isRegularFile(fileStore)) {
@@ -297,7 +297,7 @@ public final class OidcUsers {
                 continue;
             int idxColon = strTrim.indexOf(':');
             if (idxColon <= 0) {
-                throw new IllegalArgumentException("raposza.jwtmint.users: '"
+                throw new IllegalArgumentException("raposza.oidc.users: '"
                         + strTrim.replaceAll(":.*", ":...") + "' is not name:password");
             }
             map.put(strTrim.substring(0, idxColon), new User(strTrim.substring(idxColon + 1), Map.of()));

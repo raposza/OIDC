@@ -32,6 +32,13 @@
   Central: the TXT record that proves `com.raposza` covers everything beneath
   it.
 
+  0.5.0-SNAPSHOT SINCE 2026-10-05 - his number, released together with the
+  Sandbox and the Workbench at 0.5.0: the settings renamed raposza.oidc.*
+  and the old names refused.
+
+  0.4.1-SNAPSHOT SINCE 2026-10-05 - his number: the security fixes after the
+  0.4.0 release.
+
   0.4.0-SNAPSHOT SINCE 2026-09-23 - his number: the issuer is required, so a
   start that worked on 0.3.0 without it now refuses.
 
@@ -61,7 +68,7 @@
 
     <groupId>com.raposza.oidc</groupId>
     <artifactId>raposza-oidc</artifactId>
-    <version>0.4.0</version>
+    <version>0.5.0</version>
     <packaging>pom</packaging>
     <name>Raposza OIDC</name>
     <description>The shared identity provider: a JWKS, an OpenID Provider surface and a mint.</description>
@@ -108,7 +115,10 @@
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <nimbus.jose.version>9.40</nimbus.jose.version>
+        <!-- 10.10, 2026-10-05: CVE-2025-53864, GHSA-xwmg-2g98-w7v9 - a deeply
+             nested claim set overflows the stack, reachable unauthenticated
+             through `request=`. Fixed in 10.0.2; no 9.4x release carries it. -->
+        <nimbus.jose.version>10.10</nimbus.jose.version>
         <!-- The 2.8 line is the Spring Boot 3.x one; springdoc 3.x is for
              Boot 4. Do NOT go below 2.8: springdoc 2.5 breaks on Spring
              Framework 6.2 with a NoSuchMethodError on ControllerAdviceBean,
@@ -124,6 +134,36 @@
         <maven.javadoc.version>3.12.0</maven.javadoc.version>
         <maven.gpg.version>3.2.8</maven.gpg.version>
         <central.publishing.version>0.11.0</central.publishing.version>
+        <maven.enforcer.version>3.6.3</maven.enforcer.version>
+        <!-- Run by no gate here. 3.22.0 since 2026-10-05, from 3.3, the
+             version Maven 3.8.7 binds: 3.3 put commons-collections 3.2.1,
+             commons-beanutils 1.7.0 and Velocity 1.5 into the resolved plugin
+             set - dependency report 20261005_0940Z. -->
+        <maven.site.version>3.22.0</maven.site.version>
+        <!-- 2.21.7 since 2026-10-05, from the 2.21.4 spring-boot-dependencies
+             3.5.16 manages: CVE-2026-91777, GHSA-cxp5-3px4-pw24 - quadratic
+             CPU in deserialization, fixed in 2.21.7. -->
+        <jackson-bom.version>2.21.7</jackson-bom.version>
+        <!-- 1.5.38 and 2.25.5 since 2026-10-05, over the 1.5.34 and 2.24.3
+             spring-boot-dependencies 3.5.16 manages: CVE-2026-13006,
+             GHSA-567r-vvh5-jjr8 - conditional configuration, fully fixed in
+             Logback 1.5.37; CVE-2026-49844, GHSA-qv9r-c865-cp47 - MapMessage
+             JSON, fixed in Log4j 2.25.5. -->
+        <logback.version>1.5.38</logback.version>
+        <log4j2.version>2.25.5</log4j2.version>
+        <!-- 3.20.0 since 2026-10-05, over the 3.17.0 spring-boot-dependencies
+             3.5.16 manages: CVE-2025-48924, uncontrolled recursion in
+             ClassUtils.getClass, fixed in 3.18.0 - dependency report
+             20261005_1031Z and its review. 3.20.0 is what the rest of the
+             tree resolves. -->
+        <commons-lang3.version>3.20.0</commons-lang3.version>
+        <!-- 10.1.60 since 2026-10-05, over the 10.1.55 spring-boot-
+             dependencies 3.5.16 manages: CVE-2026-65905, CVE-2026-65182,
+             CVE-2026-68525, fixed in 10.1.59 per
+             tomcat.apache.org/security-10.html - dependency report
+             20261005_1130Z. 10.1.58 was never released. 10.1.60,
+             2026-09-15, is the newest 10.1 release. -->
+        <tomcat.version>10.1.60</tomcat.version>
 
         <!-- Raposza Design - Inter, Hack, the tokens; its own workspace and
              release. CARRIED in the fat jar and served from META-INF/resources:
@@ -176,6 +216,249 @@
     <build>
         <pluginManagement>
             <plugins>
+                <!-- Spring Boot manages these plugins and their versions
+                     stay Boot's; only what they load is forced here. -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <dependencies>
+                        <!-- Forced since 2026-10-05, dependency report
+                             20261005_1130Z: plexus-utils 4.0.3
+                             (CVE-2025-67030, fixed in 4.0.3). -->
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>4.0.3</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-install-plugin</artifactId>
+                    <dependencies>
+                        <!-- Forced since 2026-10-05, dependency report
+                             20261005_1130Z: plexus-utils 4.0.3
+                             (CVE-2025-67030, fixed in 4.0.3). -->
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>4.0.3</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-deploy-plugin</artifactId>
+                    <dependencies>
+                        <!-- Forced since 2026-10-05, dependency report
+                             20261005_1130Z: plexus-utils 4.0.3
+                             (CVE-2025-67030, fixed in 4.0.3). -->
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>4.0.3</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <!-- Forced since 2026-10-05 over what Spring Boot's
+                         version of this plugin brings: commons-beanutils
+                         1.11.0 (CVE-2025-48734, fixed in 1.11.0);
+                         commons-lang3 3.20.0 (CVE-2025-48924, fixed in
+                         3.18.0). No gate runs it; the parent manages it, so
+                         it is resolved, and dep_report.py lists it as forced
+                         by the build. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>commons-beanutils</groupId>
+                            <artifactId>commons-beanutils</artifactId>
+                            <version>1.11.0</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                            <version>3.20.0</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>versions-maven-plugin</artifactId>
+                    <!-- Forced since 2026-10-05 over what Spring Boot's
+                         version of this plugin brings: commons-beanutils
+                         1.11.0 (CVE-2025-48734, fixed in 1.11.0);
+                         commons-lang3 3.20.0 (CVE-2025-48924, fixed in
+                         3.18.0). No gate runs it; the parent manages it, so
+                         it is resolved, and dep_report.py lists it as forced
+                         by the build. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>commons-beanutils</groupId>
+                            <artifactId>commons-beanutils</artifactId>
+                            <version>1.11.0</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                            <version>3.20.0</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.liquibase</groupId>
+                    <artifactId>liquibase-maven-plugin</artifactId>
+                    <!-- Forced since 2026-10-05 over what Spring Boot's
+                         version of this plugin brings: commons-lang3 3.20.0
+                         (CVE-2025-48924, fixed in 3.18.0). No gate runs it;
+                         the parent manages it, so it is resolved, and
+                         dep_report.py lists it as forced by the build. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                            <version>3.20.0</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <!-- Forced since 2026-10-05 over what this plugin brings:
+                         commons-io 2.22.0 (CVE-2024-47554, fixed in 2.14.0).
+                         It runs in the gate, so a breakage shows there, and
+                         dep_report.py lists it as forced by the build. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>commons-io</groupId>
+                            <artifactId>commons-io</artifactId>
+                            <version>2.22.0</version>
+                        </dependency>
+                        <!-- Forced since 2026-10-05, dependency report
+                             20261005_1130Z: plexus-utils 4.0.3
+                             (CVE-2025-67030, fixed in 4.0.3). -->
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>4.0.3</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <!-- Forced since 2026-10-05 over what this plugin brings:
+                         commons-io 2.22.0 (CVE-2024-47554, fixed in 2.14.0);
+                         commons-lang3 3.20.0 (CVE-2025-48924, fixed in
+                         3.18.0). It runs in the gate, so a breakage shows
+                         there, and dep_report.py lists it as forced by the
+                         build. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>commons-io</groupId>
+                            <artifactId>commons-io</artifactId>
+                            <version>2.22.0</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                            <version>3.20.0</version>
+                        </dependency>
+                        <!-- Forced since 2026-10-05, dependency report
+                             20261005_1130Z: plexus-utils 3.6.1
+                             (CVE-2025-67030, fixed in 3.6.1). -->
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>3.6.1</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <!-- Forced since 2026-10-05 over what this plugin brings:
+                         commons-lang3 3.20.0 (CVE-2025-48924, fixed in
+                         3.18.0). It runs in the gate, so a breakage shows
+                         there, and dep_report.py lists it as forced by the
+                         build. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                            <version>3.20.0</version>
+                        </dependency>
+                        <!-- Forced since 2026-10-05, dependency report
+                             20261005_1130Z: plexus-utils 4.0.3
+                             (CVE-2025-67030, fixed in 4.0.3); snappy 0.5
+                             (CVE-2024-36124, fixed in 0.5). -->
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>4.0.3</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.iq80.snappy</groupId>
+                            <artifactId>snappy</artifactId>
+                            <version>0.5</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-maven-plugin</artifactId>
+                    <!-- Forced since 2026-10-05 over what this plugin brings:
+                         commons-lang3 3.20.0 (CVE-2025-48924, fixed in
+                         3.18.0); jackson-databind and jackson-core 2.21.7
+                         (CVE-2026-91777, fixed in 2.21.7). It runs in the
+                         gate, so a breakage shows there, and dep_report.py
+                         lists it as forced by the build. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                            <version>3.20.0</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-databind</artifactId>
+                            <version>2.21.7</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>com.fasterxml.jackson.core</groupId>
+                            <artifactId>jackson-core</artifactId>
+                            <version>2.21.7</version>
+                        </dependency>
+                        <!-- Forced since 2026-10-05, dependency report
+                             20261005_1130Z: plexus-utils 3.6.1
+                             (CVE-2025-67030, fixed in 3.6.1); httpclient5
+                             5.6.3 (CVE-2026-64607, fixed in 5.6.3); httpcore5
+                             5.4.3 (CVE-2026-54399, fixed in 5.4.3);
+                             httpcore5-h2 5.4.3 (CVE-2026-54428, fixed in
+                             5.4.3). -->
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>3.6.1</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.httpcomponents.client5</groupId>
+                            <artifactId>httpclient5</artifactId>
+                            <version>5.6.3</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.httpcomponents.core5</groupId>
+                            <artifactId>httpcore5</artifactId>
+                            <version>5.4.3</version>
+                        </dependency>
+                        <dependency>
+                            <groupId>org.apache.httpcomponents.core5</groupId>
+                            <artifactId>httpcore5-h2</artifactId>
+                            <version>5.4.3</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-source-plugin</artifactId>
@@ -188,6 +471,16 @@
                             </goals>
                         </execution>
                     </executions>
+                    <dependencies>
+                        <!-- Forced since 2026-10-05, dependency report
+                             20261005_1130Z: plexus-utils 4.0.3
+                             (CVE-2025-67030, fixed in 4.0.3). -->
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>4.0.3</version>
+                        </dependency>
+                    </dependencies>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -212,6 +505,48 @@
                             </goals>
                         </execution>
                     </executions>
+                    <!-- BeanUtils 1.11.0 since 2026-10-05, over the 1.9.4 this plugin
+                         brings: CVE-2025-48734, the declaredClass property reaching an
+                         enum's classloader, fixed in 1.11.0 - dependency report
+                         20261005_1031Z and its review. The plugin runs in the gate, so a
+                         breakage shows there. -->
+                    <dependencies>
+                        <dependency>
+                            <groupId>commons-beanutils</groupId>
+                            <artifactId>commons-beanutils</artifactId>
+                            <version>1.11.0</version>
+                        </dependency>
+                        <!-- 2026-10-05: commons-codec 1.21.0, the version the
+                             rest of the tree resolves, over the 1.11 it brings. -->
+                        <dependency>
+                            <groupId>commons-codec</groupId>
+                            <artifactId>commons-codec</artifactId>
+                            <version>1.21.0</version>
+                        </dependency>
+                        <!-- Forced since 2026-10-05, dependency report
+                             20261005_1130Z: plexus-utils 4.0.3
+                             (CVE-2025-67030, fixed in 4.0.3). -->
+                        <dependency>
+                            <groupId>org.codehaus.plexus</groupId>
+                            <artifactId>plexus-utils</artifactId>
+                            <version>4.0.3</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-site-plugin</artifactId>
+                    <version>${maven.site.version}</version>
+                    <dependencies>
+                        <!-- Forced since 2026-10-05, dependency report
+                             20261005_1130Z: jsoup 1.23.1 (CVE-2026-71497,
+                             fixed in 1.23.1). -->
+                        <dependency>
+                            <groupId>org.jsoup</groupId>
+                            <artifactId>jsoup</artifactId>
+                            <version>1.23.1</version>
+                        </dependency>
+                    </dependencies>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -238,6 +573,66 @@
                          a build flag. -->
                     <autoPublish>false</autoPublish>
                 </configuration>
+                <dependencies>
+                    <!-- Forced since 2026-10-05, dependency report
+                         20261005_1130Z: plexus-utils 3.6.1 (CVE-2025-67030,
+                         fixed in 3.6.1); httpclient5 5.6.3 (CVE-2026-64607,
+                         fixed in 5.6.3); httpcore5 5.4.3 (CVE-2026-54399,
+                         fixed in 5.4.3); httpcore5-h2 5.4.3 (CVE-2026-54428,
+                         fixed in 5.4.3). -->
+                    <dependency>
+                        <groupId>org.codehaus.plexus</groupId>
+                        <artifactId>plexus-utils</artifactId>
+                        <version>3.6.1</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.apache.httpcomponents.client5</groupId>
+                        <artifactId>httpclient5</artifactId>
+                        <version>5.6.3</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.apache.httpcomponents.core5</groupId>
+                        <artifactId>httpcore5</artifactId>
+                        <version>5.4.3</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.apache.httpcomponents.core5</groupId>
+                        <artifactId>httpcore5-h2</artifactId>
+                        <version>5.4.3</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+            <!-- SUPPLY CHAIN. No repository in this pom or its parents, every
+                 plugin the clean and default lifecycles run carries a stated
+                 version, and no dependency version moves on its own. Tightened,
+                 never weakened to make a build pass. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven.enforcer.version}</version>
+                <executions>
+                    <execution>
+                        <id>supply-chain</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <requireNoRepositories/>
+                                <requirePluginVersions/>
+                                <banDynamicVersions>
+                                    <allowSnapshots>false</allowSnapshots>
+                                    <!-- This reactor's own module, built in the same run. -->
+                                    <ignores>
+                                        <ignore>com.raposza.oidc:raposza-oidc-core</ignore>
+                                    </ignores>
+                                </banDynamicVersions>
+                            </rules>
+                            <fail>true</fail>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
@@ -261,6 +656,16 @@
                                 </goals>
                             </execution>
                         </executions>
+                        <dependencies>
+                            <!-- Forced since 2026-10-05, dependency report
+                                 20261005_1130Z: plexus-utils 3.6.1
+                                 (CVE-2025-67030, fixed in 3.6.1). -->
+                            <dependency>
+                                <groupId>org.codehaus.plexus</groupId>
+                                <artifactId>plexus-utils</artifactId>
+                                <version>3.6.1</version>
+                            </dependency>
+                        </dependencies>
                     </plugin>
                 </plugins>
             </build>

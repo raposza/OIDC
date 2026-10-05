@@ -66,4 +66,19 @@ class OidcRequestObjectTest {
         assertNotNull(OidcRequestObject.merge(Map.of("client_id", "c", "request", "junk")).strError());
     }
 
+
+    /** 0.5.0: an object is not a way to sign in with credentials in the address. */
+    @Test
+    void aNameOrPasswordInsideTheObjectIsDropped() {
+        String strReq = strObject(new JWTClaimsSet.Builder().claim("state", "s")
+                .claim("username", "alice").claim("password", "secret").build());
+        OidcRequestObject.Merged merged = OidcRequestObject.merge(Map.of("client_id", "c",
+                "response_type", "code", "request", strReq));
+
+        assertNull(merged.strError());
+        assertEquals("s", merged.mapParam().get("state"));
+        assertFalse(merged.mapParam().containsKey("username"));
+        assertFalse(merged.mapParam().containsKey("password"));
+    }
+
 }

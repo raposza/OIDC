@@ -30,7 +30,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
  *
  * <h2>How it is resolved</h2>
  *
- * IT IS NOT RESOLVED. `raposza.jwtmint.issuer` is required and is the value,
+ * IT IS NOT RESOLVED. `raposza.oidc.issuer` is required and is the value,
  * with any trailing slash removed - {@link MintSettings} refuses to start
  * without it. Until 0.4.0 a blank setting was guessed from this machine's
  * addresses, and a guess is exactly the thing that cannot be compared
@@ -84,9 +84,9 @@ public final class IssuerResolver {
      */
     public IssuerResolver(MintSettings settings) {
         if (settings.strIssuerFixed() == null)
-            throw new IllegalStateException("raposza.jwtmint.issuer is not set");
+            throw new IllegalStateException("raposza.oidc.issuer is not set");
         this.strIssuer = strNoTrailingSlash(settings.strIssuerFixed());
-        log.info("issuer {} (raposza.jwtmint.issuer)", strIssuer);
+        log.info("issuer {} (raposza.oidc.issuer)", strIssuer);
     }
 
 

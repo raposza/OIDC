@@ -5,6 +5,8 @@ package com.raposza.oidc;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
+import jakarta.servlet.http.HttpServletRequest;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -19,6 +21,7 @@ import org.springframework.web.util.HtmlUtils;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -125,12 +128,24 @@ public class OidcController {
     @RequestMapping(value = IssuerResolver.STR_PATH_AUTHORIZE,
             method = {RequestMethod.GET, RequestMethod.POST})
     public ResponseEntity<String> authorize(@RequestParam Map<String, String> mapQuery,
-            @CookieValue(name = OidcSessions.STR_COOKIE, required = false) String strSid) {
+            @CookieValue(name = OidcSessions.STR_COOKIE, required = false) String strSid,
+            HttpServletRequest req) {
         // THE REQUEST OBJECT FIRST, so its redirect_uri is the one every check
         // below is made against - Core 6.1 and `oidcc-ensure-request-object-
         // with-redirect-uri`.
         OidcRequestObject.Merged merged = OidcRequestObject.merge(mapQuery);
         Map<String, String> mapParam = merged.mapParam();
+        // A NAME AND A PASSWORD COME FROM THE SIGN-IN FORM'S BODY AND NOWHERE
+        // ELSE - 0.5.0. In a query string they are written into every access
+        // log and proxy log on the way. The request object never supplies them
+        // - OidcRequestObject drops them - so what is left to refuse is a GET,
+        // or a POST that carries them in its address.
+        if ((mapParam.containsKey("username") || mapParam.containsKey("password"))
+                && !flagCredentialFromForm(req.getMethod(), req.getQueryString())) {
+            return page(HttpStatus.BAD_REQUEST, "Sign-in refused",
+                    "A name and a password are accepted only from the sign-in form, sent as POST"
+                            + " - never in the address.");
+        }
         String idClient = mapParam.get("client_id");
         String strRedirect = mapParam.get("redirect_uri");
         // NEVER REDIRECTED. Core 3.1.2.6 and RFC 6749 4.1.2.1: without a valid
@@ -390,6 +405,39 @@ public class OidcController {
         if (flagClear)
             sb.append("; Max-Age=0");
         return sb.toString();
+    }
+
+
+    /**
+     * Whether a request's `username` and `password` can only have come from a
+     * form body: a POST whose address names neither.
+     *
+     * @param strMethod the HTTP method
+     * @param strQuery the raw query string, or null
+     * @return true when the credentials are acceptable where they arrived
+     */
+    static boolean flagCredentialFromForm(String strMethod, String strQuery) {
+        if (!"POST".equalsIgnoreCase(strMethod))
+            return false;
+        if (strQuery == null || strQuery.isEmpty())
+            return true;
+
+        String[] arrPair = strQuery.split("&");
+        for (int idx = 0; idx < arrPair.length; idx++) {
+            String strPair = arrPair[idx];
+            int nEq = strPair.indexOf('=');
+            String strName;
+            try {
+                strName = URLDecoder.decode(nEq < 0 ? strPair : strPair.substring(0, nEq),
+                        StandardCharsets.UTF_8);
+            }
+            catch (IllegalArgumentException ex) {
+                return false;
+            }
+            if (OidcRequestObject.SET_CREDENTIAL.contains(strName))
+                return false;
+        }
+        return true;
     }
 
 

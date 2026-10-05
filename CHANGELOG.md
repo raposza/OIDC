@@ -6,6 +6,49 @@ Version numbers here are this repository's own. `0.3.0` is the first release;
 `0.1` and `0.2` were the two internal copies this replaces and were never
 published under these coordinates.
 
+## 0.5.0 - 2026-10-05
+
+### Changed
+
+* **THE SETTINGS ARE `raposza.oidc.*`**, from `raposza.jwtmint.*` - every key,
+  unchanged after the prefix: `--raposza.oidc.issuer`, `raposza.oidc.users`,
+  `RAPOSZA_OIDC_ADMIN_PASSWORD`. **A start of the service naming the old
+  prefix is refused** - the `app` jar and `run-oidc.sh` - on the command line,
+  in a system property, in the environment or in a configuration file, and the
+  refusal lists each old name with its new one. An application that embeds
+  `oidc-server` gets the same by adding `RetiredSettings` to its own
+  `SpringApplication`'s listeners. A launcher written for 0.4.x has to change;
+  one that kept starting would have started with no issuer, or with its write
+  endpoints open. The default key directory stays `~/.raposza/jwtmint/keys`, so
+  existing keys are kept.
+* **The build refuses** a repository declared in a pom, a plugin without a
+  stated version, and a dynamic or SNAPSHOT dependency version.
+
+### Fixed
+
+* **A name and a password are read from the sign-in form's POST body only.**
+  `/oauth2/authorize` accepted `username` and `password` on a GET and in an
+  unsigned request object, so a sign-in could put a password in an address,
+  where every access log and proxy log on the way writes it down. A GET, or a
+  POST carrying either in its query string, is now refused with a page; a
+  request object's `username` and `password` are dropped.
+* **`client_credentials` is refused for a public client** with
+  `unauthorized_client`, RFC 6749 section 4.4, once a client is registered. A
+  public client presents no credential, so its token was anyone's. With no
+  client registered nothing changes.
+* **The admin UI's session cookie is `SameSite=Strict` and `HttpOnly`.**
+* **nimbus-jose-jwt 10.10**, from 9.40: CVE-2025-53864, a deeply nested claim
+  set overflowing the stack, reachable through `request`.
+* **Versions raised over those Spring Boot 3.5.16 manages**, each for a
+  published advisory: Jackson 2.21.7, Logback 1.5.38, Log4j 2.25.5, Apache
+  Commons Lang 3.20.0 and Tomcat 10.1.60. The build's own plugins load patched
+  versions of what they depend on, and `pom.xml` names the advisory beside each.
+* **The OpenAPI document named 0.3.0** through 0.4.0. It now names the release;
+  the version is a constant in `OidcApp` and moves with the pom by hand.
+* `README.md` said the token endpoint takes form or JSON; it takes form
+  encoding only and answers JSON with 415. Its conformance line now names the
+  version and date it was measured on.
+
 ## 0.4.0 - 2026-09-26
 
 ### Added

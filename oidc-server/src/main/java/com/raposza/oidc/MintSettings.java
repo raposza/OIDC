@@ -54,14 +54,14 @@ public final class MintSettings {
      * @throws IllegalStateException when the issuer is missing, or standalone
      *         is set and the password is
      */
-    public MintSettings(@Value("${raposza.jwtmint.dir-keys:}") String strDirKeys,
-            @Value("${raposza.jwtmint.issuer:}") String strIssuer,
-            @Value("${raposza.jwtmint.ttl-seconds:86400}") long nTtlSeconds,
-            @Value("${raposza.jwtmint.default-alg:RS256}") String strAlg,
-            @Value("${raposza.jwtmint.default-subject:raposza}") String strSubject,
-            @Value("${raposza.jwtmint.admin.user:admin}") String strAdminUserIn,
-            @Value("${raposza.jwtmint.admin.password:}") String strAdminPasswordIn,
-            @Value("${raposza.jwtmint.standalone:false}") boolean flagStandaloneIn) {
+    public MintSettings(@Value("${raposza.oidc.dir-keys:}") String strDirKeys,
+            @Value("${raposza.oidc.issuer:}") String strIssuer,
+            @Value("${raposza.oidc.ttl-seconds:86400}") long nTtlSeconds,
+            @Value("${raposza.oidc.default-alg:RS256}") String strAlg,
+            @Value("${raposza.oidc.default-subject:raposza}") String strSubject,
+            @Value("${raposza.oidc.admin.user:admin}") String strAdminUserIn,
+            @Value("${raposza.oidc.admin.password:}") String strAdminPasswordIn,
+            @Value("${raposza.oidc.standalone:false}") boolean flagStandaloneIn) {
         this.dirKeys = (strDirKeys == null || strDirKeys.isBlank())
                 ? MintKeys.dirDefault()
                 : Path.of(strDirKeys.trim()).toAbsolutePath().normalize();
@@ -86,12 +86,12 @@ public final class MintSettings {
         // address. Nothing in that failure points here, so the service refuses
         // instead of guessing.
         if (strIssuerFixed == null) {
-            throw new IllegalStateException("raposza.jwtmint.issuer is not set. It is"
+            throw new IllegalStateException("raposza.oidc.issuer is not set. It is"
                     + " the address consumers reach this service on, and it is written"
                     + " into every token and the discovery document, so it is not"
-                    + " guessed. Set it, for example --raposza.jwtmint.issuer="
+                    + " guessed. Set it, for example --raposza.oidc.issuer="
                     + "http://127.0.0.1:32002 on this machine, or"
-                    + " --raposza.jwtmint.issuer=https://id.example.com behind a proxy");
+                    + " --raposza.oidc.issuer=https://id.example.com behind a proxy");
         }
 
         // STANDALONE REFUSES RATHER THAN WARNS on the open write paths: a
@@ -99,8 +99,8 @@ public final class MintSettings {
         // management.
         if (flagStandalone) {
             if (!flagAdminSet()) {
-                throw new IllegalStateException("raposza.jwtmint.standalone is set"
-                        + " and raposza.jwtmint.admin.password is not. That would"
+                throw new IllegalStateException("raposza.oidc.standalone is set"
+                        + " and raposza.oidc.admin.password is not. That would"
                         + " leave key and user management open to anyone who can"
                         + " reach this service.");
             }

@@ -43,7 +43,7 @@ import java.util.Base64;
  * and every existing caller of `/admin/reload` predates this filter. So an
  * unset password leaves the filter open and says so once at startup rather than
  * breaking them. The case that matters is covered from the other side:
- * `raposza.jwtmint.standalone` REFUSES TO START without a password -
+ * `raposza.oidc.standalone` REFUSES TO START without a password -
  * {@link MintSettings} - so a service exposed on a network is always guarded.
  *
  * <h2>Two ways in, because there are two kinds of caller</h2>
@@ -103,7 +103,7 @@ public final class AdminGuard extends OncePerRequestFilter {
         if (!settings.flagAdminSet()) {
             log.warn("NO ADMIN CREDENTIAL. /admin/*, /api/ui/* and the private"
                     + " JWKS are open to anyone who can reach this service."
-                    + " Set raposza.jwtmint.admin.password to close them.");
+                    + " Set raposza.oidc.admin.password to close them.");
         }
     }
 

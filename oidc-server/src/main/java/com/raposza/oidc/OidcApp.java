@@ -33,9 +33,9 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * The product name, not the name of the one feature it started as. The JOSE
  * half in `oidc-core` keeps `com.raposza.jwt` because `raposza-auth` imports
  * it and a rename there would fork the client code as well - `raposza_oidc.md`
- * section 4. The SETTINGS prefix stays `raposza.jwtmint` for the same kind of
- * reason, stated in `README.md`: it is the compatibility surface with every
- * launcher and configuration file that already names it.
+ * section 4. The SETTINGS prefix is `raposza.oidc` from 0.5.0 - `raposza.jwtmint`
+ * until 0.4.x, and a start naming the old prefix is refused by
+ * {@link RetiredSettings}, the operator's decision of 2026-10-05.
  *
  * <h2>Endpoints</h2>
  *
@@ -57,7 +57,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * GET  /.well-known/oauth-authorization-server   the same document, RFC 8414
  * GET  /oauth2/authorize                sign in - the login page, then a code
  * POST /oauth2/token                    authorization_code, refresh_token,
- *                                       client_credentials; form or JSON
+ *                                       client_credentials; form encoding, JSON 415
  * POST /oauth/token                     the same, and POST /token
  * GET  /oauth2/userinfo                 the signed-in user, for its access token
  * GET  /oauth2/logout                   back to post_logout_redirect_uri
@@ -83,12 +83,14 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SpringBootApplication
 @OpenAPIDefinition(info = @Info(title = "Raposza OIDC",
-        version = "0.3.0",
+        version = "0.5.0",
         description = "A **test** identity provider for a local Canton sandbox and for BaseNet. It publishes its own private keys and mints whatever it is asked for, including tokens a participant must refuse. Do not run it anywhere that matters.\n\nEach endpoint below says what it does, which standard it implements where there is one, and carries a command that runs as it stands."))
 public class OidcApp {
 
     public static void main(String[] arrArg) {
-        SpringApplication.run(OidcApp.class, arrArg);
+        SpringApplication app = new SpringApplication(OidcApp.class);
+        app.addListeners(new RetiredSettings());
+        app.run(arrArg);
     }
 
 }

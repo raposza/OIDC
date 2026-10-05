@@ -118,7 +118,7 @@ public class OAuthController {
                     + " `url` must be set to.\n\n"
                     + "`issuer` here and the `iss` claim of every token this"
                     + " service mints are the same string, resolved once at"
-                    + " startup. Pin it with `raposza.jwtmint.issuer` when"
+                    + " startup. Pin it with `raposza.oidc.issuer` when"
                     + " the verifier reaches this machine by some other"
                     + " address.\n\n"
                     + "```\n"
@@ -346,6 +346,13 @@ public class OAuthController {
             return mapGrantError("unsupported_grant_type", "this service implements"
                     + " authorization_code, refresh_token and client_credentials;"
                     + " an arbitrary token is at /mint");
+        }
+        // CONFIDENTIAL CLIENTS ONLY, RFC 6749 section 4.4 - 0.5.0. Section 5.2
+        // names the refusal `unauthorized_client`. While no client is
+        // registered nothing is checked, as everywhere else here.
+        if (!clients.flagClientCredentials(strClient)) {
+            return mapGrantError("unauthorized_client",
+                    "a public client cannot use client_credentials");
         }
 
         MintRequest req = new MintRequest(strAlg, strKid,
