@@ -32,6 +32,9 @@
   Central: the TXT record that proves `com.raposza` covers everything beneath
   it.
 
+  0.5.1 SINCE 2026-10-06 - his number: the dependency review of 2026-10-06
+  before the release, no code change.
+
   0.5.0-SNAPSHOT SINCE 2026-10-05 - his number, released together with the
   Sandbox and the Workbench at 0.5.0: the settings renamed raposza.oidc.*
   and the old names refused.
@@ -68,7 +71,7 @@
 
     <groupId>com.raposza.oidc</groupId>
     <artifactId>raposza-oidc</artifactId>
-    <version>0.5.0</version>
+    <version>0.5.1</version>
     <packaging>pom</packaging>
     <name>Raposza OIDC</name>
     <description>The shared identity provider: a JWKS, an OpenID Provider surface and a mint.</description>

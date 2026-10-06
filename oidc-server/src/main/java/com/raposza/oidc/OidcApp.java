@@ -83,7 +83,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  */
 @SpringBootApplication
 @OpenAPIDefinition(info = @Info(title = "Raposza OIDC",
-        version = "0.5.0",
+        version = "0.5.1",
         description = "A **test** identity provider for a local Canton sandbox and for BaseNet. It publishes its own private keys and mints whatever it is asked for, including tokens a participant must refuse. Do not run it anywhere that matters.\n\nEach endpoint below says what it does, which standard it implements where there is one, and carries a command that runs as it stands."))
 public class OidcApp {
 

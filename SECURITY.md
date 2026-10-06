@@ -30,6 +30,13 @@ coordinate on Maven Central is immutable - so a fix arrives as a new version.
 
 ## When this was last reviewed
 
+**Reviewed 2026-10-06 for 0.5.1**, against the tree as it stands -
+`docs/security-review.md` carries the result. No new finding. The code is
+0.5.0's. One advisory is carried, CVE-2026-47884 in Spring Framework 6.2.19,
+and the path it describes is not reached from this service's own code; two
+statements about how the build's dependencies are checked were stale and are
+corrected.
+
 **Reviewed 2026-10-05 for 0.5.0**, against the tree as it stands -
 `docs/security-review.md` carries the result. No new finding. Six statements
 there were stale and are corrected: four named 0.4.1, a version that was never

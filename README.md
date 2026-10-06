@@ -27,7 +27,7 @@ what it promises.
 <dependency>
     <groupId>com.raposza.oidc</groupId>
     <artifactId>raposza-oidc-core</artifactId>
-    <version>0.5.0</version>
+    <version>0.5.1</version>
 </dependency>
 ```
 
@@ -36,7 +36,7 @@ web. `raposza-oidc-server` is the service; take it as a dependency to embed it,
 or take its `app` classifier, which is a runnable Spring Boot jar:
 
 ```
-java -jar raposza-oidc-server-0.5.0-app.jar --raposza.oidc.issuer=http://127.0.0.1:32002
+java -jar raposza-oidc-server-0.5.1-app.jar --raposza.oidc.issuer=http://127.0.0.1:32002
 ```
 
 The issuer is the address consumers reach the service on. From 0.4.0 it is

@@ -8,6 +8,17 @@ established by a third party, and no third party has signed anything about it.
 When an external audit exists it will be published beside this document,
 unedited.
 
+**Reviewed 2026-10-06 for 0.5.1**, against the tree as it stands. The code is
+0.5.0's; the dependencies were reviewed again. Read in the same pass:
+`SECURITY.md` and this document. **NO NEW FINDING. TWO STATEMENTS HERE WERE
+STALE and are corrected:** section 2 said the plugins' own dependencies are
+raised wherever an advisory names one, and jsoup in `maven-site-plugin` has
+no confirmed fixed release to raise to; and it said the build's dependencies
+are checked against OSV.dev, where they are checked against OSV.dev and this
+project's own record of advisories. Section 2 gains the one advisory this
+release carries, CVE-2026-47884 in Spring Framework, and why its path is not
+reached.
+
 **Reviewed 2026-10-05 for 0.5.0**, against the tree as it stands. Read in
 the same pass: `SECURITY.md`, this document, `README.md`'s "Settings" and the
 endpoint list in `OidcApp`. **NO NEW FINDING. SIX STATEMENTS HERE WERE STALE
@@ -106,9 +117,22 @@ named in `pom.xml`. Every version is stated. Nimbus and springdoc are pinned in
 `spring-boot-starter-parent` BOM manages, each for a published advisory -
 Jackson 2.21.7, Logback 1.5.38, Log4j 2.25.5, Apache Commons Lang 3.20.0 and
 Tomcat 10.1.60; the rest are the BOM's. The plugins' own dependencies are
-raised the same way where an advisory names one, and the comment beside each
-says which. Integrity is Maven's: the checksums Central serves beside each
-artefact, verified by the resolver.
+raised the same way where an advisory names one and a fixed release exists,
+and the comment beside each says which - except jsoup 1.23.1 in
+`maven-site-plugin`, which no build step runs: CVE-2026-75140 names it, and
+no jsoup release is confirmed to carry the fix. Integrity is Maven's: the
+checksums Central serves beside each artefact, verified by the resolver.
+
+**One known advisory is carried - 2026-10-06, for 0.5.1.** Spring Framework
+6.2.19, which the BOM manages, is affected by CVE-2026-47884: server-side
+request forgery and remote code execution through `XsltView`, when that view
+renders behind a `/**` mapping under an implicitly derived view name.
+Nothing in this service configures `XsltView`, a view resolver or a template
+engine, and every one of its controllers is a `@RestController`, which
+returns a body and renders no view. What its dependencies register was not
+read. The fixed 6.2 release, 6.2.20, is available to Spring's commercial
+support customers only; the open-source fix is Spring Framework 7.0.9, which
+is Spring Boot 4.
 
 **The build refuses what would let it change underneath itself.** The enforcer
 runs at `validate` and fails the build on a repository declared in any pom, a
@@ -116,7 +140,8 @@ plugin of the clean or default lifecycle without a stated version, and a
 dynamic or SNAPSHOT dependency version other than this reactor's own
 `oidc-core`. Before a release, every dependency and plugin of the build - their
 own dependencies included - is listed with the hash of its bytes, checked
-against OSV.dev for known advisories, and read by the maintainer.
+against OSV.dev and this project's own record of advisories, and read by the
+maintainer.
 
 At RUN time, nothing. The service fetches no remote configuration, no remote
 key set and no remote metadata. It has no outbound HTTP client at all.

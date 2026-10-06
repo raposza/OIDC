@@ -6,6 +6,22 @@ Version numbers here are this repository's own. `0.3.0` is the first release;
 `0.1` and `0.2` were the two internal copies this replaces and were never
 published under these coordinates.
 
+## 0.5.1 - 2026-10-06
+
+No change to the code or to any dependency version.
+
+### Security
+
+* **The dependencies were reviewed again before this release, and one
+  advisory is carried:** CVE-2026-47884, in Spring Framework 6.2.19, which
+  Spring Boot 3.5.16 manages. It concerns `XsltView`. Nothing in this service
+  configures `XsltView`, a view resolver or a template engine, and every one
+  of its controllers returns a response body, so the path the advisory
+  describes is not reached from this service's own code. The fixed 6.2
+  release is available to Spring's commercial support customers only; the
+  open-source fix is Spring Framework 7.0.9, which is Spring Boot 4.
+  `docs/security-review.md` section 2.
+
 ## 0.5.0 - 2026-10-05
 
 ### Changed
