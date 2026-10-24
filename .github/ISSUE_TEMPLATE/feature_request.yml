@@ -1,0 +1,44 @@
+# Copyright (c) 2026 bentzn
+# SPDX-License-Identifier: Apache-2.0
+# Author Claude/bentzn
+name: Feature request
+description: Something Raposza OIDC should do and does not.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search the existing issues first; add to one that already asks for this.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - raposza-oidc-core (library)
+        - raposza-oidc-server
+        - Web UI
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what stops you? Name the relying party where there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+      description: Name the specification section where it applies.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do today instead
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else

@@ -1,0 +1,87 @@
+# Copyright (c) 2026 bentzn
+# SPDX-License-Identifier: Apache-2.0
+# Author Claude/bentzn
+name: Bug report
+description: Raposza OIDC does not behave as documented or as OpenID Connect specifies.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search the existing issues first. A security vulnerability goes to info@raposza.com, not here - see SECURITY.md.
+
+        Raposza OIDC is not a production identity provider. That it publishes its private keys, mints any token on request and stores passwords in clear is documented behaviour - README.md.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - raposza-oidc-core (library)
+        - raposza-oidc-server, embedded
+        - raposza-oidc-server, standalone app jar
+        - Web UI
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: oidc-version
+    attributes:
+      label: Raposza OIDC version
+      placeholder: "0.5.1"
+    validations:
+      required: true
+  - type: input
+    id: relying-party
+    attributes:
+      label: Relying party
+      description: What consumes the tokens, and its version.
+      placeholder: "Canton participant 3.5.18 / Splice 0.8.3 / own application"
+  - type: input
+    id: java
+    attributes:
+      label: Java
+      description: The first line of `java -version`.
+      placeholder: 'openjdk version "21.0.8"'
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system and release
+      placeholder: "LMDE 7 / Windows Server 2025"
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings
+      description: The `--raposza.oidc.*` settings it was started with. Remove anything private.
+      render: shell
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened
+      description: The request and the response, where it is an endpoint.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: Name the specification section where it applies.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log output
+      description: Remove tokens, keys and anything private.
+      render: text

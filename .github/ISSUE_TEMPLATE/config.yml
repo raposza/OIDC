@@ -1,0 +1,8 @@
+# Copyright (c) 2026 bentzn
+# SPDX-License-Identifier: Apache-2.0
+# Author Claude/bentzn
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/raposza/OIDC/blob/main/SECURITY.md
+    about: Do not open a public issue. Write to info@raposza.com as SECURITY.md describes.
